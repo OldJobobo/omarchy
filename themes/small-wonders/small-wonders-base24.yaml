@@ -4,36 +4,36 @@ slug: "small-wonders"
 author: "OldJobobo; Miasma foundation / Omarchy"
 variant: "dark"
 
-# Exported from colors.toml; base04 is derived, all other source roles are preserved.
-# base04 separates duplicate muted/dark foreground: 50% base03 + 50% base06 (sRGB).
+# Exact semantic export from colors.toml; no derived or substituted slots.
+# Miasma heritage: blue is olive, magenta is copper, cyan is amber.
 
 palette:
-  # --- woodland floor / olive charcoal ---
-  base00: "#242620" # Woodland Charcoal - default background
-  base01: "#30342A" # Mossy Panel - lighter background
-  base02: "#414837" # Leaf Shelter - selection background
-  base03: "#A5A58E" # Lichen Sketch - comments / muted text
-  base04: "#B6B69E" # Sage Pencil - dark foreground
-  base05: "#E2DDC8" # Explorer Cream - default foreground
-  base06: "#C8C7AF" # Birch Paper - light foreground
-  base07: "#F3EED9" # Butterfly Glow - brightest foreground
+  # --- lantern-lit charcoal / woodland linen ---
+  base00: "#24241F" # Woodland Charcoal - default background
+  base01: "#2E2E28" # Warm Stone - lighter background
+  base02: "#444735" # Moss Shelter - selection background
+  base03: "#A6A38D" # Lichen Sketch - comments / muted text
+  base04: "#B9B69E" # Field Notebook - dark foreground
+  base05: "#D6D3BA" # Woodland Linen - default foreground
+  base06: "#E4DFC5" # Birch Paper - light foreground
+  base07: "#F2E8C9" # Lantern Cream - brightest foreground
 
-  # --- butterfly trail discoveries ---
-  base08: "#D38D79" # Clay Blossom - red / error
-  base09: "#C49A6C" # Acorn Shell - orange / warning
-  base0A: "#D4B76A" # Butterfly Gold - yellow
-  base0B: "#97AD76" # Fern Leaf - green
-  base0C: "#91B5A0" # Dew Glass - cyan
-  base0D: "#8FA9B6" # Morning Sky - blue
-  base0E: "#B69AAC" # Heather Petal - purple
-  base0F: "#AC8860" # Trail Bark - brown / special
+  # --- miasma roots / small discoveries ---
+  base08: "#C88C70" # Terracotta Fox - red / error
+  base09: "#C29468" # Acorn Shell - orange / warning
+  base0A: "#D29B59" # Autumn Lantern - yellow
+  base0B: "#87A477" # Fern Frond - green
+  base0C: "#D0B462" # Butterfly Amber - cyan (Miasma gold)
+  base0D: "#A3AC68" # Firefly Olive - blue (Miasma olive)
+  base0E: "#CC925E" # Copper Cap - purple (Miasma copper)
+  base0F: "#B69A79" # Trail Bark - brown / special
 
   # --- base24 extension ---
-  base10: "#1B1E18" # Root Shade - darker background
-  base11: "#141710" # Forest Hollow - darkest background
-  base12: "#E7A38E" # Bright Clay Blossom - bright red
-  base13: "#E7CB82" # Bright Butterfly Gold - bright orange / yellow
-  base14: "#B2C88F" # Bright Fern Leaf - bright green
-  base15: "#B1CDB7" # Bright Dew Glass - bright cyan
-  base16: "#AEC5CF" # Bright Morning Sky - bright blue
-  base17: "#CEB3C4" # Bright Heather Petal - bright purple
+  base10: "#1B1B17" # Root Shade - darker background
+  base11: "#141410" # Forest Hollow - darkest background
+  base12: "#E0A384" # Bright Terracotta Fox - bright red
+  base13: "#E9B875" # Bright Autumn Lantern - bright orange / yellow
+  base14: "#A5BF8D" # Bright Fern Frond - bright green
+  base15: "#E6CE85" # Bright Butterfly Amber - bright cyan
+  base16: "#BEC780" # Bright Firefly Olive - bright blue
+  base17: "#E5AE78" # Bright Copper Cap - bright purple
