@@ -1,0 +1,2 @@
+Cropped from subframe7536/maple-font v7.9 resources/showcase.png. Removed decorative window frame and background; added padding.
+Source: https://github.com/subframe7536/maple-font/blob/v7.9/resources/showcase.png
