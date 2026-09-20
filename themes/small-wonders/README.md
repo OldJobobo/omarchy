@@ -6,6 +6,6 @@ A welcoming Miasma adaptation with smoky charcoal, linen text, mossy olive, fern
 
 The palette is in `colors.toml`; wallpapers are in `backgrounds/`. A matching Base24 export is included. Text and accent roles meet 4.5:1 against base and panel backgrounds in static checks.
 
-`preview.png` shows the previous palette on a live Omarchy desktop; the revised palette has not yet received an updated screenshot or live visual verification.
+`preview.png` shows the revised palette on a live Omarchy desktop, captured at 2560×1440 with Frameshot: Nature of Hope wallpaper, Neovim, an ANSI palette card, and btop.
 
 See `ATTRIBUTION.md` for creator credits and wallpaper source links.
