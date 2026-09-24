@@ -35,6 +35,8 @@ write_shadows() {
 write_shadows 0
 omarchy-shell shell summon omarchy.audio '{}' >/dev/null
 wait_until "shadow baseline panel opens" 10 layer_present omarchy-keyboard-panel
+# A mapped layer can still be at zero opacity during its 140 ms fade-in.
+sleep 0.3
 screenshot success-shadow-disabled
 write_shadows 0.65
 screenshot success-shadow-live-enabled
@@ -73,5 +75,6 @@ done
 write_shadows 0
 omarchy-shell shell summon omarchy.audio '{}' >/dev/null
 wait_until "shadow disable keeps panel usable" 10 layer_present omarchy-keyboard-panel
+sleep 0.3
 screenshot success-shadow-live-disabled
 pass "surface shadows enabled and disabled live; review captured edges and transparency"
