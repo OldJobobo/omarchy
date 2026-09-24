@@ -14,6 +14,11 @@ Omarchy source checkout, tell the user that the work requires a separate
 checkout and get confirmation before creating one. Once working in an Omarchy
 source checkout, follow its repository instructions.
 
+Diagnosing a bug, preparing a report, or developing a feature idea does not
+authorize publishing it. Before uploading diagnostics, creating an issue or
+discussion, or otherwise sharing results externally, ensure the user explicitly
+asks for that action or confirms the prepared contents and destination.
+
 Omarchy lives at https://github.com/basecamp/omarchy. Route requests to the
 right place:
 
@@ -36,9 +41,9 @@ omarchy version
 # Generate the diagnostic log (also written to /tmp/omarchy-debug.log)
 omarchy debug --no-sudo --print
 
-# Interactive variant: `omarchy debug` offers to upload the log to
-# logs.omarchy.org (expires after 24h) and prints a shareable URL to
-# include in the issue.
+# After the user explicitly approves uploading diagnostics, the interactive
+# variant (`omarchy debug`) can upload the log to logs.omarchy.org for 24 hours
+# and print a shareable URL to include in the issue.
 ```
 
 **Capture the problem on screen.** A screenshot or short recording of the bug
@@ -51,14 +56,16 @@ path to attach (`gh` cannot upload media).
 For screen-recording failures specifically, rerun with
 `OMARCHY_SCREENRECORD_DEBUG=true` and attach `/tmp/omarchy-screenrecord.log`.
 
-File the issue with `gh` when available:
+Prepare the report for the user to review. Include what happened, what was
+expected, steps to reproduce, system details, the debug log URL or attached
+log, and the capture. Do not publish it unless the user explicitly asks to file
+the report or approves the prepared contents and destination.
+
+After that approval, file the issue with `gh` when available:
 
 ```bash
 gh issue create --repo basecamp/omarchy --title "..." --body "..."
 ```
-
-Include: what happened, what was expected, steps to reproduce, system details,
-the debug log URL (or attached log), and the capture.
 
 ## Submitting a PR
 
