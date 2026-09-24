@@ -36,7 +36,8 @@ expected=$'Dual Width\nMono Width\nShared Family'
 [[ $actual == "$expected" ]] || fail "font list includes fixed-grid font families" "expected:\n$expected\nactual:\n$actual"
 pass "font list includes fixed-grid font families"
 
-calls=$(<"$call_log")
-expected_calls=$':spacing=90\n:spacing=100'
+# Query order does not affect the sorted font list; still require each query once.
+calls=$(LC_ALL=C sort "$call_log")
+expected_calls=$':spacing=100\n:spacing=90'
 [[ $calls == "$expected_calls" ]] || fail "font list queries mono and dual spacing" "expected:\n$expected_calls\nactual:\n$calls"
 pass "font list queries mono and dual spacing"
