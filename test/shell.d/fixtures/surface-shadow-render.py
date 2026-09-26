@@ -80,7 +80,7 @@ Item {
     assert item.property("loaded")
     assert white(image, 200, 150), "shadow darkened the card interior"
     assert not white(image, 200, 205), "outer shadow is missing"
-    assert white(image, 200, 240), "shadow extends beyond reserved geometry"
+    assert white(image, 200, 229), "shadow extends to the edge of reserved geometry"
     assert not white(image, 101, 101), "rounded corner was masked as a square"
     print("ok - rendered shadow follows rounded corners and excludes translucent interiors")
 

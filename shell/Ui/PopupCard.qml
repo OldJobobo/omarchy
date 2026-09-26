@@ -101,6 +101,8 @@ PopupWindow {
 
       var target = root.anchorItem
       // Position the visible card, then subtract the transparent shadow pad.
+      // Near a monitor edge, PopupAdjustment.Slide may move the padded window
+      // inward to keep it on screen, shifting the card with it.
       var popupWidth = root.contentWidth
       var popupHeight = root.contentHeight
       var localX = target.width / 2 - popupWidth / 2

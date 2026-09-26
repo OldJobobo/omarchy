@@ -357,7 +357,7 @@ Item {
           var p = trigger.mapToItem(parent, 0, trigger.height + Style.spacing.xxs)
           _anchorX = p.x
           _anchorY = p.y
-          _availableBelow = Math.max(0, _windowHeight - _anchorY - Style.space(12))
+          _availableBelow = Math.max(0, _windowHeight - _anchorY - Math.max(Style.space(12), bottomMargin))
         }
 
         x: _anchorX

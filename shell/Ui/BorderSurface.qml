@@ -9,7 +9,7 @@ Rectangle {
 
   // Opt in only on outer cards, never ordinary controls or the bar.
   property string shadowSection: ""
-  readonly property var shadowSpec: Shadow.surfaceSpec(shadowSection)
+  readonly property var shadowSpec: shadowSection ? Shadow.surfaceSpec(shadowSection) : null
   property var borderSpec: Border.none()
   property real padding: 0
   property real topPadding: padding
@@ -33,7 +33,7 @@ Rectangle {
   Loader {
     anchors.fill: parent
     z: -1
-    active: root.shadowSpec.enabled
+    active: root.shadowSpec !== null && root.shadowSpec.enabled
     sourceComponent: SurfaceShadow {
       spec: root.shadowSpec
       radius: root.radius
