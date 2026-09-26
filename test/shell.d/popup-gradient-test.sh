@@ -16,14 +16,14 @@ const qtColor = value => {
 }
 const context = { Qt: { rgba, color: qtColor }, shellValues: {}, foreground: '#eeeeee', background: '#101010', accent: '#aabbcc' }
 context.root = context
-context.Util = { clampAlpha: n => Math.max(0, Math.min(1, n)) }
+context.Util = { clampAlpha: n => Math.max(0, Math.min(1, n)), alpha: (color, alpha) => { const c = qtColor(color); return rgba(c.r, c.g, c.b, alpha) } }
 vm.createContext(context)
 vm.runInContext(read('shell/Commons/BorderGeometry.js').replace(/^\.pragma library\s*/, ''), context)
 context.Geometry = { canonicalColor: context.canonicalColor }
 context.Style = { applyShellValues() {} }
 context.themeShellValues = {}
 context.userShellValues = {}
-for (const name of ['pick', 'pickAlpha', 'firstColorToken', 'flatColor', 'fillSpec', 'parseShell', 'mergeShell', 'loadShell', 'loadUserShell']) {
+for (const name of ['pick', 'pickAlpha', 'firstColorToken', 'flatColor', 'composed', 'fillSpec', 'parseShell', 'mergeShell', 'loadShell', 'loadUserShell']) {
   const start = source.indexOf(`  function ${name}(`)
   const end = source.indexOf('\n  }', start) + 4
   vm.runInContext(source.slice(start, end), context)
@@ -43,6 +43,12 @@ assert(!spec('').gradient.enabled, 'removing a gradient restores defaults')
 assert(spec('[popups]\nbackground = "#112233 #445566"\nbackground-alpha = 0').gradient.colors.every(c => c.a === 0), 'zero alpha affects every stop')
 assert(spec('[popups]\nbackground = "fill.alias"\n[fill]\nalias = "#112233 #445566 120deg"').gradient.angle === 120, 'resolves whole-gradient references')
 assert(!spec('[popups]\nbackground = "fill.alias"\n[fill]\nalias = "popups.background"').gradient.enabled, 'cyclic references fall back without recursion')
+fill = spec('[popups]\nbackground = "fill.a #445566"\n[fill]\na = "fill.b"\nb = "fill.a"')
+assertDeepEqual(fill.color, qtColor(context.background), 'per-stop reference cycle falls back without recursion')
+assert(fill.gradient.enabled && fill.gradient.colors.length === 2, 'per-stop cycle retains the remaining valid stop')
+assertDeepEqual(spec('[popups]\nbackground = "#11223380 #445566"\nbackground-alpha = 1').color, rgba(17 / 255, 34 / 255, 51 / 255, 128 / 255), 'rendered first stop retains intrinsic alpha')
+context.shellValues = context.parseShell('[popups]\nbackground = "#11223380 #445566"\nbackground-alpha = 1')
+assertDeepEqual(context.composed('popups.background', 'popups.background-alpha', context.background, 1), rgba(17 / 255, 34 / 255, 51 / 255, 1), 'color-only consumers replace intrinsic alpha')
 assert(!spec('[popups]\nbackground = "missing.key"').gradient.enabled, 'missing references fall back')
 assert(!spec('[popups]\nbackground = "90deg"').gradient.enabled, 'angle-only value falls back')
 assertDeepEqual(spec('[popups]\nbackground = "invalid"').color, qtColor(context.background), 'unknown role falls back')
@@ -65,5 +71,8 @@ for (const file of ['PopupCard', 'KeyboardPanel']) {
   const qml = read(`shell/Ui/${file}.qml`)
   assert(qml.includes('fillSpec: Color.popups.backgroundSpec') && qml.includes('fillColor: Color.popups.background'), `${file} opts into popup fills with compatible solid fallback`)
 }
-assert(!source.includes('fillSpec("menu.background"'), 'menu gradient support stays outside this PR')
+assert(source.includes('property var backgroundSpec: root.fillSpec("popups.background"'), 'popup gradient specification uses the popups background key')
+const slider = read('shell/Ui/PanelSlider.qml')
+assert(slider.includes('root.gradientCard ? 0 : Style.space(4)'), 'gradient slider ticks stay inside the track')
+assert(slider.includes('root.gradientCard ? root.trackColor :'), 'gradient slider knob ring follows the track rather than the bar background')
 JS
