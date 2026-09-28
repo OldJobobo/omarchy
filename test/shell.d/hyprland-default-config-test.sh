@@ -105,7 +105,7 @@ grep -Fq $'SUPER + RETURN	Terminal' <<<"$fresh_output" || fail "default applicat
 grep -Fq $'SUPER + SHIFT + A	ChatGPT' <<<"$fresh_output" || fail "default application bindings include preinstalled web apps"
 pass "default application bindings load from package defaults"
 
-OMARCHY_PATH="$ROOT" lua <<'LUA' || fail "LocalSend rules match its current Wayland app ID"
+OMARCHY_PATH="$ROOT" lua - <<'LUA' || fail "LocalSend rules match its current Wayland app ID"
 package.path = os.getenv("OMARCHY_PATH") .. "/?.lua;" .. package.path
 
 local rules = {}
