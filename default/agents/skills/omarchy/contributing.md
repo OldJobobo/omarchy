@@ -7,7 +7,7 @@ feature, or explicitly contribute a fix upstream.
 
 Reporting or diagnosing a bug does not authorize implementing a fix. Do not
 leave the current project or clone, fork, branch, or modify an Omarchy source
-checkout unless the user explicitly asks to work on an upstream Omarchy fix.
+checkout unless the user explicitly asks for a change to Omarchy itself.
 
 If upstream work is explicitly requested but the current project is not an
 Omarchy source checkout, tell the user that the work requires a separate
@@ -70,7 +70,7 @@ gh issue create --repo basecamp/omarchy --title "..." --body "..."
 ## Submitting a PR
 
 Only follow this workflow when the user explicitly asks to implement or prepare
-an upstream Omarchy fix. Never develop against `/usr/share/omarchy`. Use an
+a change to Omarchy itself. Never develop against `/usr/share/omarchy`. Use an
 existing Omarchy source checkout when one is available. If a new checkout is
 needed, explain that to the user and get confirmation before creating it:
 

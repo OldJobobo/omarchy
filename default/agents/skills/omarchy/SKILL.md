@@ -10,7 +10,7 @@ description: >
   settings, display config, user-facing omarchy commands, diagnosing or reporting
   Omarchy bugs, suggesting Omarchy features, and explicit requests to contribute
   fixes upstream. Omarchy source development remains excluded unless the user
-  explicitly requests upstream work.
+  explicitly asks for a change to Omarchy itself.
 ---
 
 # Omarchy Skill
@@ -39,7 +39,7 @@ Source-development conventions come from the Omarchy checkout itself.
 
 **If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
 
-**Do NOT start Omarchy source development unless the user explicitly requests an upstream fix.** For an explicit contribution request, read [`contributing.md`](contributing.md) for scope and checkout safeguards, then follow the Omarchy checkout's repository instructions.
+**Do NOT start Omarchy source development unless the user explicitly asks for a change to Omarchy itself.** Diagnosing, reporting, or customizing is not that request. For an explicit contribution request, read [`contributing.md`](contributing.md) for scope and checkout safeguards, then follow the Omarchy checkout's repository instructions.
 
 ## Topic Guides
 
@@ -275,7 +275,7 @@ omarchy reminder clear
 
 ## Source Development Scope
 
-This skill does not replace the repository instructions for Omarchy source development. Enter that workflow only when the user explicitly requests an upstream fix and after following the scope and checkout safeguards in [`contributing.md`](contributing.md).
+This skill does not replace the repository instructions for Omarchy source development. Enter that workflow only when the user explicitly asks for a change to Omarchy itself and after following the scope and checkout safeguards in [`contributing.md`](contributing.md).
 
 Never treat the packaged files in `/usr/share/omarchy/` as a development checkout. Source changes, migrations, and `omarchy dev ...` workflows belong in an Omarchy source checkout and follow that checkout's repository instructions.
 
