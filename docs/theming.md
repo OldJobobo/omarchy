@@ -213,7 +213,7 @@ selected-background = "#7c3aed #2563eb 0deg"
 selected-background-alpha = 0.35
 ```
 
-Stops are distributed evenly. `0deg` runs left to right and `90deg` runs top to bottom. For gradient values, the alpha companion multiplies every stop's own alpha; solid values retain the shell's existing alpha behavior. Menu, Clipboard, Emojis, and Reminders share the menu card fill; Menu, Clipboard, and Emojis also share the selected-item fill. Color-only consumers use the first stop as a compatibility fallback.
+Stops are distributed evenly and rendered at their specified positions. `0deg` runs left to right and `90deg` runs top to bottom. For gradient values, the alpha companion multiplies every stop's own alpha; solid values retain the shell's existing alpha behavior. Menu, Clipboard, Emojis, and Reminders share the menu card fill; Menu, Clipboard, and Emojis also share the selected-item fill. Color-only consumers use the rendered first stop, including its multiplied alpha, for gradients; solid colors retain their existing alpha behavior. Scrollable menus keep edge cues over either kind of fill.
 
 Do not add separate `background-gradient` or `selected-background-gradient` keys. The canonical token itself holds either the solid color or gradient.
 

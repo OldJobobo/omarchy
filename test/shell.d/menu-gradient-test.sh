@@ -6,6 +6,7 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
 run_node_test <<'JS'
 const fs = require('fs')
+const vm = require('vm')
 
 const template = fs.readFileSync(path.join(root, 'default/themed/shell.toml.tpl'), 'utf8')
 const color = fs.readFileSync(path.join(root, 'shell/Commons/Color.qml'), 'utf8')
@@ -24,9 +25,26 @@ assert(/property var selectedBackgroundSpec: root\.fillSpec\("menu\.selected-bac
 assert(/property var fillSpec: null/.test(surface) && /usesGradientFill/.test(surface), 'BorderSurface supports lazy gradient fills')
 assert(/property color fillColor: "transparent"/.test(surface) && /color: usesGradientFill \? "transparent" : fillColor/.test(surface), 'gradient fills replace rather than stack over solid fallbacks')
 assert(/FillOverlay 1\.0 FillOverlay\.qml/.test(qmldir), 'FillOverlay is registered in qs.Ui')
-assert(/sampledStopPosition/.test(fillOverlay) && /sampledStopColor/.test(fillOverlay), 'FillOverlay samples its fixed stop list without collapsing to the final color')
+assert(/sampledStopPosition\(root\._colors,/.test(fillOverlay) && /sampledStopColor/.test(fillOverlay), 'FillOverlay positions fixed slots around authored stops')
+const geometry = fs.readFileSync(path.join(root, 'shell/Commons/BorderGeometry.js'), 'utf8').replace(/^\.pragma library\s*/, '')
+const samples = vm.createContext({ Qt: { rgba: (r, g, b, a) => ({ r, g, b, a }) } })
+vm.runInContext(geometry, samples)
+for (let count = 2; count <= 10; count++) {
+  const colors = Array.from({ length: count }, (_, i) => ({ r: i / 10, g: 0, b: 0, a: 1 }))
+  const positions = Array.from({ length: 10 }, (_, i) => samples.sampledStopPosition(colors, i, 10))
+  assert(positions[0] === 0 && positions[9] === 1 && positions.every((p, i) => i === 0 || p > positions[i - 1]), `${count} stops occupy distinct positions`)
+  for (let stop = 0; stop < count; stop++) {
+    const slot = Math.floor(stop * 9 / (count - 1))
+    assert(Math.abs(positions[slot] - stop / (count - 1)) < 1e-10, `${count}-stop palette retains authored stop ${stop} position`)
+    const color = samples.sampledStopColor(colors, slot, 10)
+    assert(Math.abs(color.r - colors[stop].r) < 1e-10, `${count}-stop palette retains authored stop ${stop} color`)
+  }
+}
 assert(/fillSpec: root\.backgroundSpec/.test(menu) && /fillSpec: row\.hasCursor \? root\.selectedBackgroundSpec : null/.test(menu), 'Menu renders card and selected-row gradients')
-assert(/!root\.backgroundSpec\.gradient\.enabled/.test(menu), 'Menu suppresses flat scroll fades over a gradient card')
+assert((menu.match(/visible: opacity > 0 && !root\.backgroundSpec\.gradient\.enabled/g) || []).length === 2
+  && (menu.match(/visible: opacity > 0 && root\.backgroundSpec\.gradient\.enabled/g) || []).length === 2,
+  'Menu retains top and bottom scroll cues for both solid and gradient cards')
+assert(menu.includes('Util.alpha(root.foreground, 0.18)'), 'gradient scroll cues tint rather than flatten the card fill')
 assert(/fillSpec: root\.backgroundSpec/.test(clipboard) && /fillSpec: hasCursor \? root\.selectedBackgroundSpec : null/.test(clipboard), 'Clipboard inherits menu card and selected-row gradients')
 assert(/fillSpec: root\.backgroundSpec/.test(emojis) && /fillSpec: hasCursor \? root\.selectedBackgroundSpec : null/.test(emojis), 'Emojis inherit menu card and selected-cell gradients')
 assert(/fillSpec: root\.backgroundSpec/.test(reminders), 'Reminders inherit the menu card gradient')
@@ -64,7 +82,7 @@ ShellRoot {
 [menu]
 background = "#11223380 #445566 25deg"
 background-alpha = 0.5
-selected-background = "accent foreground 0deg"
+selected-background = "#11223380 foreground 0deg"
 selected-background-alpha = 0.35
 `)
 
@@ -75,12 +93,15 @@ selected-background-alpha = 0.35
         fail("menu background gradient spec was not resolved")
         return
       }
-      if (Math.abs(background.gradient.colors[0].a - 0.25) > 0.01) {
-        fail("menu background alpha did not multiply the stop alpha")
+      if (Math.abs(background.gradient.colors[0].a - 0.25) > 0.01
+          || Math.abs(Color.menu.background.a - background.gradient.colors[0].a) > 0.01) {
+        fail("menu background and color-only fallback did not share multiplied alpha")
         return
       }
-      if (!selected.gradient.enabled || selected.gradient.colors.length !== 2) {
-        fail("selected background gradient spec was not resolved")
+      if (!selected.gradient.enabled || selected.gradient.colors.length !== 2
+          || Math.abs(selected.gradient.colors[0].a - 128 / 255 * 0.35) > 0.01
+          || Math.abs(Color.menu.selectedBackground.a - selected.gradient.colors[0].a) > 0.01) {
+        fail("selected background gradient and fallback were not resolved consistently")
         return
       }
       if (!card.usesGradientFill || !card.usesOverlayBorder || !selection.usesGradientFill) {

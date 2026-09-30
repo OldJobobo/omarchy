@@ -372,16 +372,26 @@ function stopPosition(colors, index) {
   return index / (count - 1)
 }
 
-// Shapes require a static GradientStop list. Sample an arbitrary evenly-spaced
-// source palette across that fixed list instead of piling unused stops at 1.0,
-// which makes the CurveRenderer collapse the fill to the final color.
+// Shapes require a static GradientStop list. Distribute the spare slots across
+// source segments so every authored stop lands at its exact position; repeated
+// positions at 1.0 make the CurveRenderer collapse to the final color.
+function sampledStopPosition(colors, index, sampleCount) {
+  var count = colors ? colors.length : 0
+  var samples = Math.max(2, Number(sampleCount) || 2)
+  if (count <= 1 || count > samples) return clamp(index / (samples - 1), 0, 1)
+  var segment = Math.min(count - 2, Math.floor(index * (count - 1) / (samples - 1)))
+  var start = Math.floor(segment * (samples - 1) / (count - 1))
+  var end = Math.floor((segment + 1) * (samples - 1) / (count - 1))
+  return (segment + (index - start) / (end - start)) / (count - 1)
+}
+
 function sampledStopColor(colors, index, sampleCount) {
   var count = colors ? colors.length : 0
   var samples = Math.max(2, Number(sampleCount) || 2)
   if (count === 0) return "transparent"
   if (count === 1) return colors[0]
 
-  var position = clamp(index / (samples - 1), 0, 1)
+  var position = sampledStopPosition(colors, index, samples)
   var scaled = position * (count - 1)
   var leftIndex = Math.min(count - 1, Math.floor(scaled))
   var rightIndex = Math.min(count - 1, leftIndex + 1)
@@ -399,9 +409,4 @@ function sampledStopColor(colors, index, sampleCount) {
     left.b + (right.b - left.b) * amount,
     (left.a === undefined ? 1 : left.a) + ((right.a === undefined ? 1 : right.a) - (left.a === undefined ? 1 : left.a)) * amount
   )
-}
-
-function sampledStopPosition(index, sampleCount) {
-  var samples = Math.max(2, Number(sampleCount) || 2)
-  return clamp(index / (samples - 1), 0, 1)
 }

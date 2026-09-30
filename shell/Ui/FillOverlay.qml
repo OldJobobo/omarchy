@@ -37,16 +37,16 @@ Item {
         x2: root._endpoints.x2
         y2: root._endpoints.y2
 
-        GradientStop { position: Geometry.sampledStopPosition(0, 10); color: Geometry.sampledStopColor(root._colors, 0, 10) }
-        GradientStop { position: Geometry.sampledStopPosition(1, 10); color: Geometry.sampledStopColor(root._colors, 1, 10) }
-        GradientStop { position: Geometry.sampledStopPosition(2, 10); color: Geometry.sampledStopColor(root._colors, 2, 10) }
-        GradientStop { position: Geometry.sampledStopPosition(3, 10); color: Geometry.sampledStopColor(root._colors, 3, 10) }
-        GradientStop { position: Geometry.sampledStopPosition(4, 10); color: Geometry.sampledStopColor(root._colors, 4, 10) }
-        GradientStop { position: Geometry.sampledStopPosition(5, 10); color: Geometry.sampledStopColor(root._colors, 5, 10) }
-        GradientStop { position: Geometry.sampledStopPosition(6, 10); color: Geometry.sampledStopColor(root._colors, 6, 10) }
-        GradientStop { position: Geometry.sampledStopPosition(7, 10); color: Geometry.sampledStopColor(root._colors, 7, 10) }
-        GradientStop { position: Geometry.sampledStopPosition(8, 10); color: Geometry.sampledStopColor(root._colors, 8, 10) }
-        GradientStop { position: Geometry.sampledStopPosition(9, 10); color: Geometry.sampledStopColor(root._colors, 9, 10) }
+        GradientStop { position: Geometry.sampledStopPosition(root._colors, 0, 10); color: Geometry.sampledStopColor(root._colors, 0, 10) }
+        GradientStop { position: Geometry.sampledStopPosition(root._colors, 1, 10); color: Geometry.sampledStopColor(root._colors, 1, 10) }
+        GradientStop { position: Geometry.sampledStopPosition(root._colors, 2, 10); color: Geometry.sampledStopColor(root._colors, 2, 10) }
+        GradientStop { position: Geometry.sampledStopPosition(root._colors, 3, 10); color: Geometry.sampledStopColor(root._colors, 3, 10) }
+        GradientStop { position: Geometry.sampledStopPosition(root._colors, 4, 10); color: Geometry.sampledStopColor(root._colors, 4, 10) }
+        GradientStop { position: Geometry.sampledStopPosition(root._colors, 5, 10); color: Geometry.sampledStopColor(root._colors, 5, 10) }
+        GradientStop { position: Geometry.sampledStopPosition(root._colors, 6, 10); color: Geometry.sampledStopColor(root._colors, 6, 10) }
+        GradientStop { position: Geometry.sampledStopPosition(root._colors, 7, 10); color: Geometry.sampledStopColor(root._colors, 7, 10) }
+        GradientStop { position: Geometry.sampledStopPosition(root._colors, 8, 10); color: Geometry.sampledStopColor(root._colors, 8, 10) }
+        GradientStop { position: Geometry.sampledStopPosition(root._colors, 9, 10); color: Geometry.sampledStopColor(root._colors, 9, 10) }
       }
 
       PathSvg { path: root._path }
