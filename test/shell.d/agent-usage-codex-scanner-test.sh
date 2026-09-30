@@ -13,6 +13,10 @@ mkdir -p "$TEST_HOME/.codex/sessions/$(date +%Y/%m/%d)" "$TEST_HOME/bin"
 cat >"$TEST_HOME/bin/codex" <<'EOF'
 #!/bin/bash
 
+if [[ -n ${CODEX_ARGS_FILE:-} ]]; then
+  printf '%s\0' "$@" >"$CODEX_ARGS_FILE"
+fi
+
 while read -r request; do
   id=$(jq -r '.id // empty' <<<"$request")
   method=$(jq -r '.method // empty' <<<"$request")
@@ -22,10 +26,12 @@ while read -r request; do
       jq -cn --argjson id "$id" '{id: $id, result: {}}'
       ;;
     account/read)
-      jq -cn --argjson id "$id" '{id: $id, result: {account: {}}}'
+      # Codex 0.158 can leave this one unanswered for good.
+      [[ -n ${CODEX_ACCOUNT_READ_HANGS:-} ]] ||
+        jq -cn --argjson id "$id" '{id: $id, result: {account: {}}}'
       ;;
     account/rateLimits/read)
-      jq -cn --argjson id "$id" '{id: $id, result: {rateLimits: {}}}'
+      jq -cn --argjson id "$id" --argjson limits "${CODEX_RATE_LIMITS:-{\}}" '{id: $id, result: {rateLimits: $limits}}'
       ;;
   esac
 done
@@ -40,8 +46,17 @@ cat >"$session" <<EOF
 {"timestamp":"$timestamp","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":180,"cached_input_tokens":110,"output_tokens":30,"reasoning_output_tokens":8,"total_tokens":210},"last_token_usage":{"input_tokens":80,"cached_input_tokens":50,"output_tokens":10,"reasoning_output_tokens":3,"total_tokens":90}}}}
 EOF
 
-result=$(HOME="$TEST_HOME" CODEX_HOME="$TEST_HOME/.codex" XDG_DATA_HOME="$TEST_HOME/.local/share" PATH="$TEST_HOME/bin:$PATH" \
+result=$(HOME="$TEST_HOME" CODEX_HOME="$TEST_HOME/.codex" CODEX_ARGS_FILE="$TEST_HOME/codex-args" XDG_DATA_HOME="$TEST_HOME/.local/share" PATH="$TEST_HOME/bin:$PATH" \
   "$ROOT/bin/omarchy-agent-usage-codex")
+
+# NUL-separated, so the assertion sees argument boundaries: a single "-a on-request"
+# would flatten to the same text as two arguments but is not a policy codex accepts.
+expected_args=(-s read-only -a on-request app-server)
+mapfile -d '' -t codex_args <"$TEST_HOME/codex-args"
+
+[[ ${codex_args[*]@Q} == "${expected_args[*]@Q}" ]] ||
+  fail "Codex collector uses the supported approval policy" "${codex_args[*]@Q}"
+pass "Codex collector uses the supported approval policy"
 
 [[ $(jq -r '.todayTotalTokens' <<<"$result") == "210" ]] ||
   fail "Codex collector counts each turn once" "$result"
@@ -590,3 +605,14 @@ result=$(HOME="$INTERRUPTED_HOME" CODEX_HOME="$INTERRUPTED_HOME/.codex" XDG_CACH
 [[ $(jq -r '.todayTotalTokens' <<<"$result") == "9" ]] ||
   fail "Codex collector does not reuse a snapshot from an interrupted scan" "$result"
 pass "Codex collector does not cache an interrupted opencode scan"
+
+# The limits name the plan themselves, so an account/read that never answers
+# costs nothing: the limits still arrive, and quickly.
+started=$(date +%s)
+result=$(HOME="$TEST_HOME" CODEX_HOME="$TEST_HOME/.codex" XDG_DATA_HOME="$TEST_HOME/.local/share" PATH="$TEST_HOME/bin:$PATH" \
+  CODEX_ACCOUNT_READ_HANGS=1 CODEX_RATE_LIMITS='{"planType":"pro","primary":{"usedPercent":36,"windowDurationMins":10080}}' \
+  "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
+(( $(date +%s) - started < 4 )) || fail "Codex collector doesn't wait on account/read when the limits name the plan"
+[[ $(jq -c '{tierLabel, usageStatusText, limits: [.limits[] | {label, percent}]}' <<<"$result") == '{"tierLabel":"pro","usageStatusText":"","limits":[{"label":"Weekly (7-day)","percent":0.36}]}' ]] ||
+  fail "Codex collector reads limits even when account/read never answers" "$result"
+pass "Codex collector reads limits even when account/read never answers"

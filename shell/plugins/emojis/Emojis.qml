@@ -159,15 +159,10 @@ Item {
     path: root.omarchyPath + "/shell/plugins/emojis/emojis.json"
     onLoaded: root.loadEmojis(text())
   }
-  PanelWindow {
+  OverlayWindow {
     id: panel
-    visible: root.opened
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "transparent"
+    shown: root.opened
     WlrLayershell.namespace: "omarchy-emojis"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-    exclusionMode: ExclusionMode.Ignore
 
     Rectangle {
       anchors.fill: parent
@@ -250,6 +245,7 @@ Item {
           color: "transparent"
 
           Text {
+            textFormat: Text.PlainText
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
@@ -288,6 +284,7 @@ Item {
               fillSpec: hasCursor ? root.selectedBackgroundSpec : null
 
               Text {
+                textFormat: Text.PlainText
                 text: parent.emoji
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.display
@@ -330,6 +327,7 @@ Item {
             }
 
             Text {
+              textFormat: Text.PlainText
               text: "No matches for “" + root.filterText + "”"
               color: root.foreground
               opacity: 0.7
