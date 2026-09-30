@@ -85,7 +85,7 @@ Item {
       : Style.normalFillFor(root.foreground, root.accent)
     borderSpec: Border.controlSpec(root.checked ? "selected" : "normal", root.foreground, root.accent)
 
-    Behavior on color { ColorAnimation { duration: 120 } }
+    Behavior on color { ColorAnimation { duration: Style.duration(120) } }
 
     Rectangle {
       width: root.knobSize
@@ -95,8 +95,8 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       color: root.checked ? Style.selectedStateColor(root.foreground, root.accent) : Qt.darker(root.foreground, 1.25)
 
-      Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-      Behavior on color { ColorAnimation { duration: 120 } }
+      Behavior on x { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
+      Behavior on color { ColorAnimation { duration: Style.duration(120) } }
     }
   }
 
