@@ -182,7 +182,13 @@ function appendArc(path, rx, ry, sweep, point) {
 // to 0.05 logical pixels, with a bounded subdivision depth.
 function roundingPower(value) {
   var n = Number(value)
-  return isFinite(n) && n >= 1 ? Math.min(n, 10) : 2
+  return isFinite(n) ? Math.max(1, Math.min(n, 10)) : 2
+}
+
+// Hyprland scales the configured rounding radius to preserve perceived
+// roundness as the corner power changes.
+function effectiveRadius(radius, power) {
+  return Math.max(0, Number(radius) || 0) * roundingPower(power) / 2
 }
 
 function cornerPoints(boundary, side) {
@@ -334,10 +340,13 @@ function runPath(outer, inner, start, length) {
 }
 
 function radiiFit(w, h, r) {
-  return r.tlrx + r.trrx <= w
-    && r.blrx + r.brrx <= w
-    && r.tlry + r.blry <= h
-    && r.trry + r.brry <= h
+  // A scaled radius can land a few ulps above an exact half-height; that
+  // should not turn a thin border into an all-surface fill.
+  var epsilon = 1e-7
+  return r.tlrx + r.trrx <= w + epsilon
+    && r.blrx + r.brrx <= w + epsilon
+    && r.tlry + r.blry <= h + epsilon
+    && r.trry + r.brry <= h + epsilon
 }
 
 // Internal geometry output used by ringPath and focused topology tests.
@@ -376,16 +385,26 @@ function borderPaths(w, h, radius, widths, power) {
   var ih = h - top - bottom
   if (iw <= 0 || ih <= 0) return [outerPath]
 
-  var desiredInnerRadii = {
-    tlrx: Math.max(0, outerRadii.tl.rx - left),
-    tlry: Math.max(0, outerRadii.tl.ry - top),
-    trrx: Math.max(0, outerRadii.tr.rx - right),
-    trry: Math.max(0, outerRadii.tr.ry - top),
-    brrx: Math.max(0, outerRadii.br.rx - right),
-    brry: Math.max(0, outerRadii.br.ry - bottom),
-    blrx: Math.max(0, outerRadii.bl.rx - left),
-    blry: Math.max(0, outerRadii.bl.ry - bottom),
+  // Concentric chamfers lose border width along the diagonal. Match
+  // Hyprland's correction below power 2, per axis for asymmetric borders.
+  var correction = (Math.sqrt(2) - 1) * Math.max(2 - roundingPower(power), 0)
+  function innerRadiiFor(factor) {
+    return {
+      tlrx: Math.max(0, outerRadii.tl.rx - left * factor),
+      tlry: Math.max(0, outerRadii.tl.ry - top * factor),
+      trrx: Math.max(0, outerRadii.tr.rx - right * factor),
+      trry: Math.max(0, outerRadii.tr.ry - top * factor),
+      brrx: Math.max(0, outerRadii.br.rx - right * factor),
+      brry: Math.max(0, outerRadii.br.ry - bottom * factor),
+      blrx: Math.max(0, outerRadii.bl.rx - left * factor),
+      blry: Math.max(0, outerRadii.bl.ry - bottom * factor),
+    }
   }
+  var desiredInnerRadii = innerRadiiFor(1 - correction)
+  // Near the size limit there may be no room for the chamfer correction;
+  // keep the original inset instead of filling the entire surface.
+  if (correction > 0 && !radiiFit(iw, ih, desiredInnerRadii))
+    desiredInnerRadii = innerRadiiFor(1)
 
   // Normalizing an inner radius that cannot fit can move its tangent beyond
   // the outer rounded boundary. Winding fill may then paint outside the outer

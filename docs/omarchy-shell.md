@@ -223,9 +223,11 @@ The shell exposes these tokens to QML via three singletons in
 
 ### Corner geometry
 
-`Style.cornerRadius` and `Style.cornerRoundingPower` mirror Hyprland's `decoration:rounding` and `decoration:rounding_power` through the existing style refresh lifecycle. Power 1 gives chamfered corners, power 2 gives circular corners, and higher powers give progressively squarer superellipse corners. Missing or invalid power readings preserve the previous value, initially 2.
+`Style.cornerRadius` and `Style.cornerRoundingPower` mirror Hyprland's `decoration:rounding` and `decoration:rounding_power` through the existing style refresh lifecycle. Power 1 gives chamfered corners, power 2 gives circular corners, and higher powers give progressively squarer superellipse corners. Like Hyprland, the effective corner radius is `rounding * rounding_power / 2`, and finite powers outside 1–10 are clamped. Missing or invalid power readings preserve the previous value, initially 2.
 
-Use `CornerRectangle` from `qs.Ui` for theme-shaped fills and simple uniform borders, or `BorderSurface` for shell border specs (including gradients and per-side widths). Both expose `color`, `radius`, and `roundingPower`; `CornerRectangle` also supports `border.color` and `border.width`. Set `radius: Style.cornerRadius` to follow the theme. Circular corners and zero-radius surfaces use native Qt rectangles; other powers share path geometry between fills and borders. These components do not add rounded clipping or change input regions.
+Use `CornerRectangle` from `qs.Ui` for theme-shaped fills and simple uniform borders, or `BorderSurface` for shell border specs (including gradients and per-side widths). Both expose `color`, `radius`, and `roundingPower`; `CornerRectangle` also supports `border.color` and `border.width`. Set `radius: Style.cornerRadius` to follow the theme. Circular corners and zero-radius surfaces use native Qt rectangles internally; other powers share path geometry between fills and borders. These components do not add rounded clipping or change input regions.
+
+Both components are `Item`s, not `Rectangle`s. Plugins using Rectangle-only properties such as `gradient`, `topLeftRadius`, `border.pixelAligned`, or `antialiasing` must keep a native `Rectangle` or adapt to the new surface API. Explicitly set `border.width` when using `border.color` on `CornerRectangle` (its default width is 0). A circular or pill-shaped `BorderSurface` must set `roundingPower: 2` to remain circular when the theme changes power.
 
 Intentional circles and pills, such as avatars, slider knobs, and switch tracks, should remain native `Rectangle`s or explicitly set `roundingPower: 2` on a `BorderSurface`.
 

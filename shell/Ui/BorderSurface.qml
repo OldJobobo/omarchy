@@ -1,9 +1,11 @@
 import QtQuick
 import qs.Commons
 
-// Rectangle-compatible surface with Omarchy border specs. Uses native
-// Rectangle.border for cheap flat/uniform borders and BorderOverlay for
-// gradients or per-side widths.
+// Item-based surface with Omarchy border specs. Its color/radius/border
+// subset is Rectangle-like, but it is not a Rectangle: plugins using
+// Rectangle-only properties (gradient, corner radii, border.pixelAligned,
+// antialiasing) must use a native Rectangle instead. Native flat/uniform
+// borders stay cheap; gradients and per-side widths use BorderOverlay.
 CornerRectangle {
   id: root
 
@@ -33,7 +35,7 @@ CornerRectangle {
 
     sourceComponent: BorderOverlay {
       anchors.fill: parent
-      radius: root.radius
+      radius: root.effectiveRadius
       roundingPower: root.roundingPower
       borderSpec: root.borderSpec
     }

@@ -18,6 +18,7 @@ Item {
   }
   readonly property BorderProperties border: BorderProperties {}
   property real roundingPower: Style.cornerRoundingPower
+  readonly property real effectiveRadius: Geometry.effectiveRadius(radius, roundingPower)
   readonly property bool customCorners: radius > 0 && Geometry.roundingPower(roundingPower) !== 2
 
   Rectangle {
@@ -40,14 +41,18 @@ Item {
         ShapePath {
           strokeWidth: 0
           fillColor: root.color
-          PathSvg { path: Geometry.surfacePath(root.width, root.height, root.radius, root.roundingPower) }
+          PathSvg { path: Geometry.surfacePath(root.width, root.height, root.effectiveRadius, root.roundingPower) }
         }
       }
 
-      BorderOverlay {
-        radius: root.radius
-        roundingPower: root.roundingPower
-        borderSpec: ({ color: root.border.color, widths: Geometry.parseWidthSpec(root.border.width, 0) })
+      Loader {
+        anchors.fill: parent
+        active: root.border.width > 0
+        sourceComponent: BorderOverlay {
+          radius: root.effectiveRadius
+          roundingPower: root.roundingPower
+          borderSpec: ({ color: root.border.color, widths: Geometry.parseWidthSpec(root.border.width, 0) })
+        }
       }
     }
   }

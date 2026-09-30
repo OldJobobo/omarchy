@@ -382,8 +382,8 @@ QtObject {
   function applyRoundingPowerJson(raw) {
     try {
       var json = JSON.parse(raw || "{}")
-      if (typeof json.float === "number" && isFinite(json.float) && json.float >= 1 && json.float <= 10)
-        cornerRoundingPower = json.float
+      if (typeof json.float === "number" && isFinite(json.float))
+        cornerRoundingPower = Math.max(1, Math.min(json.float, 10))
     } catch (e) {
       // Keep the previous value when Hyprland is unavailable.
     }
