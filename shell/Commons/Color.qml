@@ -48,14 +48,15 @@ QtObject {
     return value
   }
 
-  function flatColor(value, fallback, seen) {
+  function flatColor(value, fallback) {
+    var seen = Object.create(null)
     var token = firstColorToken(value)
     var role = String(token || "").replace(/^\s+|\s+$/g, "").toLowerCase()
-    var visited = seen || ({})
-    if (root.shellValues[role] && root.shellValues[role] !== token) {
-      if (visited[role]) return fallback
-      visited[role] = true
-      return flatColor(root.shellValues[role], fallback, visited)
+    while (root.shellValues[role] && root.shellValues[role] !== token) {
+      if (seen[role]) return fallback
+      seen[role] = true
+      token = firstColorToken(root.shellValues[role])
+      role = String(token || "").replace(/^\s+|\s+$/g, "").toLowerCase()
     }
     if (role === "foreground" || role === "text") return root.foreground
     if (role === "accent") return root.accent
@@ -65,7 +66,7 @@ QtObject {
     if (role === "transparent") return Qt.rgba(0, 0, 0, 0)
 
     var color = Geometry.canonicalColor(token, 1)
-    if (typeof color === "string" && color === token) return fallback
+    if (typeof color === "string" && color === token && !/^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(token)) return fallback
     return color
   }
 

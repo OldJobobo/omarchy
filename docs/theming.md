@@ -45,6 +45,8 @@ Making a new app follow theme changes means adding its restart/retint command
 to that list. Runs serialize on a `flock`, so scripted theme changes queue
 instead of racing.
 
+Last, it starts `omarchy-theme-set-herdr-machines` detached. That command sets the same theme on every enabled `herdr machine list` target that runs Omarchy, over SSH inside the remote's live Hyprland session, and logs each machine's result to `~/.local/state/omarchy/theme-set-herdr-machines.log`. Sync is off by default. The `herdr-theme-sync` toggle turns it on, and a machine only sends and accepts themes while it is on. A mirrored change carries `OMARCHY_THEME_SYNC_FROM`, so the receiving machine never sends it on.
+
 ## What an installed theme may not ship
 
 `themes/<name>/` in this repo is Omarchy's own code and is trusted. So is a theme the user wrote by hand in `~/.config/omarchy/themes/<name>/`: it is their machine and their file, and both stage in full.
@@ -209,7 +211,7 @@ background = "#232936 #141820 90deg"
 background-alpha = 0.96
 ```
 
-Use 2–10 evenly spaced color stops followed by an optional angle; `0deg` runs left to right and `90deg` runs top to bottom. Colors use the same syntax and palette roles as shell borders. A dotted reference can refer to another shell token containing a gradient. Cyclic or missing references fall back to the default background. `background-alpha` multiplies each rendered gradient stop's intrinsic alpha once. Color-only consumers use the first stop with `background-alpha` replacing its intrinsic alpha, as for solid backgrounds; `transparent` therefore resolves to opaque black at the default alpha of 1 for those consumers. Existing solid backgrounds retain their current alpha behavior and native rectangle rendering. The stricter `flatColor` fallback applies to all shell color roles: malformed and Qt-only 9- or 13-digit hex values fall back to the role default.
+Use 2–10 evenly spaced color stops followed by an optional angle; `0deg` runs left to right and `90deg` runs top to bottom. Colors use the same syntax and palette roles as shell borders. A dotted reference can refer to another shell token containing a gradient. Cyclic or missing references fall back to the default background. `background-alpha` multiplies each rendered gradient stop's intrinsic alpha once. Color-only consumers use the first stop with `background-alpha` replacing its intrinsic alpha, as for solid backgrounds; `transparent` therefore resolves to opaque black at the default alpha of 1 for those consumers. Existing solid backgrounds retain their current alpha behavior and native rectangle rendering. The stricter `flatColor` fallback applies to roles resolved through `flatColor` (composed background, border, scrim and selection roles, and popup gradient stops): malformed and Qt-only 9- or 12-digit hex values fall back to the role default.
 
 Gradients are opt-in and respect popup rounding and borders. A machine-level `~/.config/omarchy/shell.toml` override takes precedence over the active theme and reloads live. Remove it to return to the theme's fill.
 
