@@ -33,6 +33,8 @@ assert(corner.includes('Geometry.effectiveRadius(radius, roundingPower)')
   'custom corners scale the configured radius once')
 assert(corner.includes('active: root.border.width > 0'), 'borderless custom corners do not construct an unused overlay')
 for (const [file, marker] of [
+  ['shell/plugins/agents/Panel.qml', 'component StarterTile: CornerRectangle {'],
+  ['shell/plugins/agents/Panel.qml', 'component HeroButton: CornerRectangle {'],
   ['shell/plugins/panels/elsewhen/CityRow.qml', 'CornerRectangle {'],
   ['shell/plugins/panels/elsewhen/Globe.qml', '// Results overlay the globe so it never resizes under the pointer mid-search.\n  CornerRectangle {'],
 ]) {
