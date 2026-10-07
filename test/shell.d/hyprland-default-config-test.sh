@@ -118,11 +118,13 @@ hl = {
 require("default.hypr.helpers")
 require("default.hypr.apps.localsend")
 
-assert(#rules == 2)
+assert(#rules == 3)
 assert(rules[1].match.class == "^(Share|localsend|org\\.localsend\\.localsend_app)$")
 assert(rules[1].float == true and rules[1].center == true)
 assert(rules[2].match.class == "^(localsend|org\\.localsend\\.localsend_app)$")
 assert(rules[2].size[1] == 1100 and rules[2].size[2] == 700)
+assert(rules[3].match.class == rules[2].match.class)
+assert(rules[3].opacity == "0.985 0.96")
 LUA
 pass "LocalSend rules match its current Wayland app ID"
 
@@ -195,6 +197,22 @@ if grep -Fq $'SUPER + CTRL + X	Toggle dictation' <<<"$missing_voxtype_output"; t
   fail "missing Voxtype skips its bindings"
 fi
 pass "missing Voxtype skips dictation bindings"
+
+# Lazydocker is optional on new installs, while existing installs keep the hotkey.
+lazydocker_bin="$tmpdir/lazydocker-bin"
+mkdir -p "$lazydocker_bin"
+touch "$lazydocker_bin/lazydocker"
+chmod +x "$lazydocker_bin/lazydocker"
+lazydocker_output=$(PATH="$lazydocker_bin:$PATH" run_application_bindings "$fresh_home")
+grep -Fqx $'SUPER + SHIFT + D\tDocker' <<<"$lazydocker_output" ||
+  fail "installed Lazydocker keeps its Docker shortcut"
+pass "installed Lazydocker keeps its Docker shortcut"
+
+missing_lazydocker_output=$(PATH="$missing_bin" run_application_bindings "$fresh_home")
+if grep -Fq $'SUPER + SHIFT + D\tDocker' <<<"$missing_lazydocker_output"; then
+  fail "missing Lazydocker skips its Docker shortcut"
+fi
+pass "missing Lazydocker skips its Docker shortcut"
 
 # The Grave shortcuts are aliases, so the original SUPER + S pair has to keep
 # working alongside them.
