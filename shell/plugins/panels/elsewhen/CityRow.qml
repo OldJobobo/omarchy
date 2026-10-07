@@ -297,6 +297,7 @@ CornerRectangle {
     anchors.verticalCenter: parent.top
     size: fontSize + (Style.space(22) - fontSize) * 0.85
     radius: size / 2
+    roundingPower: 2
     color: Model.mix(Color.popups.background, row.foreground, _hot ? 0.24 : 0.14)
     borderSpec: Border.flat(Model.mix(Color.popups.background, row.foreground, _hot ? 0.65 : 0.35), Style.space(1))
     iconText: "\u00d7"

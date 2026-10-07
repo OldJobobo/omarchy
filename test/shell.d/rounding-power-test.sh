@@ -40,6 +40,9 @@ for (const [file, marker] of [
 ]) {
   assert(fs.readFileSync(path.join(root, file), 'utf8').includes(marker), `${file} follows theme-shaped corners`)
 }
+const cityRow = fs.readFileSync(path.join(root, 'shell/plugins/panels/elsewhen/CityRow.qml'), 'utf8')
+assert(/id: removeButton[\s\S]*?radius: size \/ 2\s+roundingPower: 2/.test(cityRow),
+  'Elsewhen remove button preserves intentional circular geometry')
 for (const file of ['shell/Ui/ToggleSwitch.qml', 'shell/Ui/PanelSlider.qml', 'shell/plugins/panels/tailscale/TailscaleIcon.qml']) {
   assert(fs.readFileSync(path.join(root, file), 'utf8').includes('roundingPower: 2'), `${file} preserves intentional circular geometry`)
 }
