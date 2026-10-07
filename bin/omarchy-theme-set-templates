@@ -340,6 +340,9 @@ render_templates() {
     if [[ ! -f $NEXT_THEME_DIR/$filename && -z ${rendered[$filename]:-} ]]; then
       rendered[$filename]=1
       pairs+=("$tpl" "$NEXT_THEME_DIR/$filename")
+      if [[ $tpl == "$USER_TEMPLATES_DIR/neovim.lua.tpl" ]]; then
+        OMARCHY_THEME_KEEP_NEOVIM_LUA=1
+      fi
     fi
   done
 
