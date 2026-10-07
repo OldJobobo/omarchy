@@ -80,9 +80,9 @@ pass "enabled terminal blur defaults to radius 20"
 
 commented_colors="$test_tmp/commented-colors.toml"
 cat >"$commented_colors" <<'TOML'
-terminal_opacity = 0.72 # tuned translucency
-terminal_blur = true # use compositor blur
-terminal_blur_radius = 28 # balanced intensity
+terminal_opacity = 0.72 # user's "tuned" translucency
+terminal_blur = true # user's "compositor" blur
+terminal_blur_radius = 28 # user's "balanced" intensity
 TOML
 commented_values=$(PATH="$ROOT/bin:$PATH" "$ROOT/bin/omarchy-theme-color" --file "$commented_colors" --all)
 grep -qx $'terminal_opacity\t0.72' <<<"$commented_values" || fail "commented opacity resolves"
@@ -188,6 +188,24 @@ hl = { config = function(_) end, curve = function(_, _) end, animation = functio
 dofile("$next_theme/hyprland.lua")
 LUA
 pass "valid hyprland.toml generates syntactically valid allowlisted Lua"
+
+reset_theme
+sed -i 's/^background =/bg =/; s/^foreground =/fg =/' "$next_theme/colors.toml"
+cat >"$next_theme/hyprland.toml" <<'TOML'
+schema = 1
+[decoration.shadow]
+color = "background"
+color_inactive = "dark_background"
+[group.groupbar]
+text_color = "foreground"
+TOML
+resolved_values=$(PATH="$ROOT/bin:$PATH" "$ROOT/bin/omarchy-theme-color" --file "$next_theme/colors.toml" --all)
+derived_background=$(awk -F '\t' '$1 == "dark_background" { print $2 }' <<<"$resolved_values")
+render
+grep -Fq 'color = "rgb(1a1b26)"' "$next_theme/hyprland.lua" || fail "Hyprland resolves legacy background aliases"
+grep -Fq 'text_color = "rgb(a9b1d6)"' "$next_theme/hyprland.lua" || fail "Hyprland resolves legacy foreground aliases"
+grep -Fq "color_inactive = \"rgb(${derived_background#\#})\"" "$next_theme/hyprland.lua" || fail "Hyprland resolves derived colors"
+pass "Hyprland declarations use shared palette aliases and derived colors"
 
 reset_theme
 render

@@ -143,6 +143,10 @@ parse_colors_file() {
     key="${key//[\"\' ]/}"                # strip quotes and spaces from key
     [[ $key && $key != \#* ]] || continue # skip empty lines and comments
 
+    if [[ $key == "terminal_opacity" || $key == "terminal_blur" || $key == "terminal_blur_radius" ]]; then
+      value="${value%%#*}"
+    fi
+
     if [[ $value == *[\"\']* ]]; then
       value="${value#*[\"\']}"
       value="${value%%[\"\']*}" # extract value between quotes (ignores inline comments)

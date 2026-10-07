@@ -325,6 +325,7 @@ append_hyprland_toml() {
 import json
 import math
 import re
+import subprocess
 import sys
 import tomllib
 
@@ -380,8 +381,10 @@ def short_name(value, path):
 try:
     with open(settings_path, "rb") as file:
         document = tomllib.load(file)
-    with open(colors_path, "rb") as file:
-        palette = tomllib.load(file)
+    resolved_colors = subprocess.check_output(
+        ["omarchy-theme-color", "--file", colors_path, "--all"], text=True
+    )
+    palette = dict(line.split("\t", 1) for line in resolved_colors.splitlines())
 
     reject_unknown(document, {"schema", "general", "decoration", "group", "beziers", "animations"}, "top-level")
     if type(document.get("schema")) is not int or document["schema"] != 1:
@@ -589,7 +592,7 @@ try:
         print(f"hl.curve({lua(name)}, {{ type = \"bezier\", points = {{ {{ {lua(x1)}, {lua(y1)} }}, {{ {lua(x2)}, {lua(y2)} }} }} }})")
     for animation in parsed_animations:
         print(f"hl.animation({lua(animation)})")
-except (InvalidTheme, OSError, tomllib.TOMLDecodeError) as error:
+except (InvalidTheme, OSError, subprocess.CalledProcessError, tomllib.TOMLDecodeError) as error:
     print(f"hyprland.toml: {error}", file=sys.stderr)
     sys.exit(1)
 PY
