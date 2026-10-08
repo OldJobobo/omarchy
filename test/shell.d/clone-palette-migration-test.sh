@@ -83,6 +83,10 @@ Item {
   trailing_pragma = fixture("trailing-pragma-comment", trailing_pragma_source, filename="Model.js")
   same_line_source = "import QtQuick\nimport qs.Commons\n/* explanation */ Item { property color accent: Color.accent }\n"
   same_line = fixture("same-line-comment", same_line_source)
+  strict_source = '.pragma library\n"use strict";\nfunction accent() { return Color.accent }\n'
+  strict = fixture("leading-strict", strict_source, filename="Model.js")
+  string_source = '// leading comment\n"a harmless leading string"\nfunction accent() { return Color.accent }\n'
+  leading_string = fixture("leading-string-asi", string_source, filename="Model.js")
   local_commons = fixture("local-commons", "import QtQuick\nimport qs.Commons\nItem { function accent() { const Commons = {}; return Color.accent } }\n")
   division_source = "import QtQuick\nimport qs.Commons\nItem { property real a: width / 2; property real b: (width - 1) / 2; property real c: Math.round(width) / 2; property color accent: Color.accent }\n"
   division = fixture("division", division_source)
@@ -146,6 +150,8 @@ Item {
   check(trailing_import.read_text() == trailing_import_source.replace("Item {", "import qs.Commons as Commons\nItem {", 1).replace("accent: Color.accent", "accent: Commons.Color.accent"), "import-line multiline comments cannot swallow the new QML import")
   check(trailing_pragma.read_text() == trailing_pragma_source.replace("function accent", ".import qs.Commons 1.0 as Commons\nfunction accent", 1).replace("return Color.accent", "return Commons.Color.accent"), "pragma-line multiline comments cannot swallow the new JavaScript import")
   check(same_line.read_text() == same_line_source.replace("Item {", "\nimport qs.Commons as Commons\nItem {", 1).replace("accent: Color.accent", "accent: Commons.Color.accent"), "comments ending on the root object's line remain outside the new import")
+  check(strict.read_text() == strict_source.replace('"use strict";', '.import qs.Commons 1.0 as Commons\n"use strict";', 1).replace('return Color.accent', 'return Commons.Color.accent'), "JavaScript imports precede a complete use-strict statement without splitting its semicolon")
+  check(leading_string.read_text() == string_source.replace('"a harmless leading string"', '.import qs.Commons 1.0 as Commons\n"a harmless leading string"', 1).replace('return Color.accent', 'return Commons.Color.accent'), "JavaScript imports precede leading string statements without semicolons")
   check("as OmarchyCommons" in local_commons.read_text() and "return OmarchyCommons.Color.accent" in local_commons.read_text() and "const Commons = {}" in local_commons.read_text(), "new import aliases avoid locally declared names")
   check(division.read_text() == division_source.replace("import qs.Commons\n", "import qs.Commons\nimport qs.Commons as Commons\n").replace("accent: Color.accent", "accent: Commons.Color.accent"), "ordinary expression divisions remain unchanged while palette references migrate")
   for file, before in ambiguous:

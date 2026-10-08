@@ -122,10 +122,11 @@ for plugin in sorted(plugins.iterdir()):
       if add_import:
         newline = "\r\n" if "\r\n" in text else "\n"
         directive = (".import qs.Commons 1.0 as " if file.suffix == ".js" else "import qs.Commons as ") + alias
-        # Insert before the first code token, after all headers AND their
-        # trailing comments. An import-line newline may still be inside a
-        # multiline block comment. Retain every existing import and pragma.
-        position = code[0].start()
+        # Insert before the first statement, after headers and their trailing
+        # comments. Leading string statements (e.g. "use strict";) are code,
+        # not whitespace: putting an import before their semicolon splits them.
+        statements = code + [item for item in opaque if not item[0].startswith(('//', '/*')) and not any(header.start() <= item.start() < header.end() for header in headers)]
+        position = min(item.start() for item in statements)
         line_start = text.rfind("\n", 0, position) + 1
         if not text[line_start:position].strip():
           position = line_start
