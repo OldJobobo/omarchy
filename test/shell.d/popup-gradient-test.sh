@@ -69,10 +69,12 @@ assert(surface.includes('active: root.usesGradientFill'), 'gradient renderer is 
 assert(surface.includes('(usesGradientFill && !Border.isNone(borderSpec))'), 'borders render above gradient fills')
 for (const file of ['PopupCard', 'KeyboardPanel']) {
   const qml = read(`shell/Ui/${file}.qml`)
-  assert(qml.includes('fillSpec: Color.popups.backgroundSpec') && qml.includes('fillColor: Color.popups.background'), `${file} opts into popup fills with compatible solid fallback`)
+  assert(qml.includes('import qs.Commons as Commons'), `${file} imports the qualified palette namespace`)
+  assert(qml.includes('fillSpec: Commons.Color.popups.backgroundSpec') && qml.includes('fillColor: Commons.Color.popups.background'), `${file} opts into popup fills with compatible solid fallback`)
 }
 assert(source.includes('property var backgroundSpec: root.fillSpec("popups.background"'), 'popup gradient specification uses the popups background key')
 const slider = read('shell/Ui/PanelSlider.qml')
+assert(slider.includes('import qs.Commons as Commons') && slider.includes('readonly property bool gradientCard: Commons.Color.popups.backgroundSpec.gradient.enabled'), 'gradient slider uses the qualified palette namespace')
 assert(slider.includes('root.gradientCard ? 0 : Style.space(4)'), 'gradient slider ticks stay inside the track')
 assert(slider.includes('root.gradientCard ? root.trackColor :'), 'gradient slider knob ring follows the track rather than the bar background')
 JS
