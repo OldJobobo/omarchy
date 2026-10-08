@@ -1,0 +1,228 @@
+#!/bin/bash
+
+# omarchy:summary=Qualify shell palette references in plugins for Qt 6.12
+# omarchy:group=plugin
+# omarchy:args=[--revert] <plugin-folder>...
+# omarchy:hidden=true
+
+# Qt 6.12's QtQuick Color singleton hides the shell palette wherever a file
+# imports qs.Commons unqualified, so rewrite those references to Commons.Color.
+
+set -euo pipefail
+
+RECORD=.git/info/omarchy-fix-palette
+
+# What may precede a palette reference: never a member dot, an identifier, or
+# the inside of a string or path. A spread (...Color) is still a reference.
+B='(^|[^.[:alnum:]_$"'"'"'`/]|\.\.\.)'
+COMMENT='^[[:space:]]*(//|/?\*)'
+MEMBER="${B}Color\.[[:alpha:]_\$]"
+TARGET="${B}target[[:space:]]*:[[:space:]]*Color[[:space:]]*(;|}|\$)"
+NAME="${B}Color([^.[:alnum:]_\$]|\$)"
+
+QML_COMMONS='^[[:space:]]*import[[:space:]]+qs\.Commons([[:space:]]+[0-9.]+)?[[:space:]]*$'
+QML_ALIAS='^[[:space:]]*import[[:space:]]+qs\.Commons([[:space:]]+[0-9.]+)?[[:space:]]+as[[:space:]]+Commons[[:space:]]*$'
+JS_HEADER='^[[:space:]]*\.(import|pragma)[[:space:]]'
+
+warn() {
+  echo "omarchy-plugin-fix-palette: $*" >&2
+}
+
+code() {
+  grep -Ev "$COMMENT" "$1"
+}
+
+mentions() {
+  code "$1" | grep -E "$MEMBER|$TARGET" >/dev/null
+}
+
+# Any other bare Color -- a parameter, a key, a local, Color["x"], a target on
+# the next line -- may not be the palette, so it is reported rather than guessed.
+ambiguous() {
+  code "$1" | sed -E "s#${B}(target[[:space:]]*:[[:space:]]*)Color([[:space:]]*(;|}|\r?\$))#\\1\\2\\3#g" | grep -E "$NAME" >/dev/null
+}
+
+qualify() {
+  sed -E -i "\\%${COMMENT}%!{
+    s#${B}Color\\.([[:alpha:]_\$])#\\1Commons.Color.\\2#g
+    s#${B}(target[[:space:]]*:[[:space:]]*)Color([[:space:]]*(;|}|\\r?\$))#\\1\\2Commons.Color\\3#g
+  }" "$1"
+}
+
+# QML imports live in the header above the root object; an import shown in a
+# comment, above or below, is not one. Prints the last live line that matches.
+imported() {
+  PATTERN="$1" awk '
+    {
+      rest = $0; sub(/\r$/, "", rest); line = ""
+      while (rest != "") {
+        if (open) {
+          end = index(rest, "*/")
+          if (!end) break
+          rest = substr(rest, end + 2); open = 0
+        } else {
+          block = index(rest, "/*"); eol = index(rest, "//")
+          if (eol && (!block || eol < block)) { line = line substr(rest, 1, eol - 1); break }
+          if (!block) { line = line rest; break }
+          line = line substr(rest, 1, block - 1) " "; rest = substr(rest, block + 2); open = 1
+        }
+      }
+    }
+    line ~ /^[[:space:]]*$/ { next }
+    line ~ /^[[:space:]]*(import|pragma)[[:space:]]/ { if (line ~ ENVIRON["PATTERN"]) found = NR; next }
+    { exit }
+    END { if (found) print found; exit !found }
+  ' "$2"
+}
+
+# A line of its own above the live import, whatever trails that import.
+alias_qml() {
+  imported "$QML_ALIAS" "$1" >/dev/null && return
+  local line aliased
+  line=$(imported "$QML_COMMONS" "$1") || return 1
+  aliased=$(awk -v at="$line" '
+    NR == at {
+      if (!match($0, /^[[:space:]]*import[[:space:]]/)) exit 1
+      indent = $0; sub(/import.*/, "", indent)
+      print indent "import qs.Commons as Commons" (/\r$/ ? "\r" : "")
+    }
+    { print }
+  ' "$1" && printf x) || return 1
+  printf '%s' "${aliased%x}" >"$1"
+  imported "$QML_ALIAS" "$1" >/dev/null
+}
+
+fix_qml() {
+  alias_qml "$1" && qualify "$1"
+}
+
+# Only a file git has unmodified can be put back from HEAD without taking a
+# user's own edit with it.
+restorable() {
+  local path="${1#"$plugin/"}"
+  [[ -d $plugin/.git ]] &&
+    git -C "$plugin" ls-files --error-unmatch -- "$path" >/dev/null 2>&1 &&
+    git -C "$plugin" diff --quiet HEAD -- "$path"
+}
+
+rewrite() {
+  local file="${!#}" clean=0
+  restorable "$file" && clean=1
+  if "$@"; then
+    changed=1
+    if (( clean )); then
+      recorded+=("${file#"$plugin/"}")
+    fi
+  else
+    warn "could not rewrite $file"
+  fi
+}
+
+importers() {
+  local name
+  name=$(printf '%s' "${1##*/}" | sed 's/[][\.*^$+?(){}|/]/\\&/g')
+  (( ${#qml[@]} )) || return 0
+  grep -lE "^[[:space:]]*import[[:space:]]+\"([^\"]*/)?${name}\"" "${qml[@]}" 2>/dev/null || true
+}
+
+# A git checkout is updated by fast-forward, so remember what we rewrote and
+# the content we left. --revert puts back only files nobody has edited since.
+remember() {
+  local record="$plugin/$RECORD" path
+  local -a kept=()
+  if [[ -f $record ]]; then
+    mapfile -t kept < <(cd "$plugin" && sha256sum --check "$RECORD" 2>/dev/null | sed -n 's/: OK$//p')
+  fi
+
+  mkdir -p "${record%/*}"
+  (
+    cd "$plugin"
+    for path in "${kept[@]}" "$@"; do
+      sha256sum -- "$path"
+    done | sort -k2 -u
+  ) >"$record.tmp"
+  mv "$record.tmp" "$record"
+}
+
+revert() {
+  local plugin="$1" path
+  [[ -f $plugin/$RECORD ]] || return 0
+
+  while IFS= read -r path; do
+    git -C "$plugin" checkout -- "$path" || warn "could not restore $plugin/$path"
+  done < <(cd "$plugin" && sha256sum --check "$RECORD" 2>/dev/null | sed -n 's/: OK$//p')
+  rm -f "$plugin/$RECORD"
+}
+
+fix() {
+  local plugin="$1" file importer changed=0
+  local -a qml=() js=() recorded=() loaders=()
+
+  # A plugin with its own Color type means its bare Color may be its own.
+  if find "$plugin" -path "$plugin/.git" -prune -o -name Color.qml -print -quit | grep -q .; then
+    warn "skipped $plugin: it defines its own Color type"
+    return 0
+  fi
+
+  while IFS= read -r -d '' file; do
+    if [[ $file == *.qml ]]; then
+      qml+=("$file")
+    else
+      js+=("$file")
+    fi
+  done < <(find "$plugin" -path "$plugin/.git" -prune -o -type f \( -name '*.qml' -o -name '*.js' \) -print0 | sort -z)
+
+  for file in "${qml[@]}"; do
+    imported "$QML_COMMONS" "$file" >/dev/null || continue
+    if ambiguous "$file"; then
+      warn "skipped $file: Color is also used as a plain name"
+      continue
+    fi
+    mentions "$file" || continue
+    rewrite fix_qml "$file"
+  done
+
+  # A script without imports of its own inherits those of the QML that loads
+  # it, so its Color is the palette only if every loader imports qs.Commons.
+  for file in "${js[@]}"; do
+    { mentions "$file" || ambiguous "$file"; } && ! grep -Eq "$JS_HEADER" "$file" || continue
+    mapfile -t loaders < <(importers "$file")
+    (( ${#loaders[@]} )) || continue
+    for importer in "${loaders[@]}"; do
+      imported "$QML_COMMONS|$QML_ALIAS" "$importer" >/dev/null || continue 2
+    done
+    if ambiguous "$file"; then
+      warn "skipped $file: Color is also used as a plain name"
+      continue
+    fi
+    # Every loader must carry the alias before the script may rely on it.
+    for importer in "${loaders[@]}"; do
+      imported "$QML_ALIAS" "$importer" >/dev/null || rewrite alias_qml "$importer"
+      imported "$QML_ALIAS" "$importer" >/dev/null || continue 2
+    done
+    rewrite qualify "$file"
+  done
+
+  (( changed )) || return 0
+  if [[ -d $plugin/.git ]] && (( ${#recorded[@]} )); then
+    remember "${recorded[@]}"
+  fi
+  echo "Qualified shell palette references in ${plugin/#$HOME/\~}"
+}
+
+mode=fix
+if [[ ${1:-} == --revert ]]; then
+  mode=revert
+  shift
+fi
+
+(( $# )) || {
+  echo "Usage: omarchy plugin fix-palette [--revert] <plugin-folder>..." >&2
+  exit 1
+}
+
+for plugin in "$@"; do
+  plugin=${plugin%/}
+  [[ -d $plugin && ! -L $plugin ]] || continue
+  "$mode" "$plugin"
+done
