@@ -15,7 +15,6 @@ RECORD=.git/info/omarchy-fix-palette
 # What may precede a palette reference: never a member dot, an identifier, or
 # the inside of a string or path. A spread (...Color) is still a reference.
 B='(^|[^.[:alnum:]_$"'"'"'`/]|\.\.\.)'
-COMMENT='^[[:space:]]*(//|/?\*)'
 MEMBER="${B}Color\.[[:alpha:]_\$]"
 TARGET="${B}target[[:space:]]*:[[:space:]]*Color[[:space:]]*(;|}|\$)"
 NAME="${B}Color([^.[:alnum:]_\$]|\$)"
@@ -28,8 +27,91 @@ warn() {
   echo "omarchy-plugin-fix-palette: $*" >&2
 }
 
+# Keep lexical masking and rewriting together so detection sees exactly the
+# source spans that can be changed. Python is part of the Omarchy runtime.
+source_tool() {
+  python3 - "$@" <<'PY'
+import json
+from pathlib import Path
+import re
+import sys
+
+opaque = re.compile(r'''//[^\r\n]*|/\*[\s\S]*?\*/|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|`(?:\\[\s\S]|[^`\\])*`''')
+
+def source(file):
+  text = Path(file).read_bytes().decode("utf-8", errors="surrogateescape")
+  literals = list(opaque.finditer(text))
+  masked = opaque.sub(lambda item: re.sub(r"[^\r\n]", " ", item[0]), text)
+  return text, masked, literals
+
+def ambiguous_syntax(masked, literals):
+  if any(item[0].startswith('`') and '${' in item[0] for item in literals):
+    return True
+  # Without a full JS parser, regex-like slashes and control-statement/ASI
+  # contexts are ambiguous. Keep such files untouched rather than alter data.
+  tokens = list(re.finditer(r"[A-Za-z_$][\w$]*|[^\s]", masked))
+  keywords = {"return", "throw", "case", "delete", "void", "typeof", "new", "in", "instanceof", "of", "yield", "await", "else", "do", "break", "continue", "debugger"}
+  controls = {"if", "while", "for", "switch", "catch", "with"}
+  parens = []
+  value_end = False
+  for i, token in enumerate(tokens):
+    value = token[0]
+    if value in ('\\', '"', "'", '`'):
+      return True
+    if value == "/" and (not value_end or (i and re.search(r"[\r\n]", masked[tokens[i - 1].end():token.start()]))):
+      return True
+    if value == "(":
+      parens.append(i == 0 or tokens[i - 1][0] not in controls)
+    if value == ")":
+      value_end = bool(parens and parens.pop())
+    else:
+      value_end = value == "]" or (bool(re.fullmatch(r"[A-Za-z_$][\w$]*|\d", value)) and value not in keywords)
+  return False
+
+action = sys.argv[1]
+if action == "importers":
+  script = Path(sys.argv[2]).resolve()
+  for file in sys.argv[3:]:
+    text, masked, _ = source(file)
+    offset = 0
+    for line in masked.splitlines(keepends=True):
+      active = line.strip()
+      if active and not re.match(r"(?:import|pragma)\s", active):
+        break
+      start = offset + len(line) - len(line.lstrip())
+      match = re.match(r'import\s+("(?:\\.|[^"\\])*")', text[start:]) if active else None
+      if match:
+        try:
+          relative = json.loads(match[1])
+        except ValueError:
+          relative = ""
+        if relative and (Path(file).parent / relative).resolve() == script:
+          print(file)
+          break
+      offset += len(line)
+  raise SystemExit(0)
+
+file = sys.argv[2]
+text, masked, literals = source(file)
+unsafe = ambiguous_syntax(masked, literals)
+if action == "code":
+  # A plain-name sentinel makes the existing ambiguity guard report a skip.
+  sys.stdout.buffer.write((masked + ("\nColor\n" if unsafe else "")).encode("utf-8", errors="surrogateescape"))
+else:
+  if unsafe:
+    raise SystemExit(1)
+  boundary = r"(^|[^.\w$]|\.\.\.)"
+  member = re.compile(boundary + r"(?P<name>Color)(?=\.[A-Za-z_$])", re.MULTILINE)
+  target = re.compile(boundary + r"target\s*:\s*(?P<name>Color)(?=\s*(?:;|}|$))", re.MULTILINE)
+  spans = {match.span("name") for pattern in (member, target) for match in pattern.finditer(masked)}
+  for start, end in sorted(spans, reverse=True):
+    text = text[:start] + "Commons.Color" + text[end:]
+  Path(file).write_bytes(text.encode("utf-8", errors="surrogateescape"))
+PY
+}
+
 code() {
-  grep -Ev "$COMMENT" "$1"
+  source_tool code "$1"
 }
 
 mentions() {
@@ -43,10 +125,7 @@ ambiguous() {
 }
 
 qualify() {
-  sed -E -i "\\%${COMMENT}%!{
-    s#${B}Color\\.([[:alpha:]_\$])#\\1Commons.Color.\\2#g
-    s#${B}(target[[:space:]]*:[[:space:]]*)Color([[:space:]]*(;|}|\\r?\$))#\\1\\2Commons.Color\\3#g
-  }" "$1"
+  source_tool qualify "$1"
 }
 
 # QML imports live in the header above the root object; an import shown in a
@@ -119,10 +198,8 @@ rewrite() {
 }
 
 importers() {
-  local name
-  name=$(printf '%s' "${1##*/}" | sed 's/[][\.*^$+?(){}|/]/\\&/g')
   (( ${#qml[@]} )) || return 0
-  grep -lE "^[[:space:]]*import[[:space:]]+\"([^\"]*/)?${name}\"" "${qml[@]}" 2>/dev/null || true
+  source_tool importers "$1" "${qml[@]}"
 }
 
 # A git checkout is updated by fast-forward, so remember what we rewrote and
@@ -175,7 +252,7 @@ fix() {
   for file in "${qml[@]}"; do
     imported "$QML_COMMONS" "$file" >/dev/null || continue
     if ambiguous "$file"; then
-      warn "skipped $file: Color is also used as a plain name"
+      warn "skipped $file: Color is also used as a plain name, or source syntax is ambiguous; qualify the palette manually"
       continue
     fi
     mentions "$file" || continue
@@ -185,14 +262,19 @@ fix() {
   # A script without imports of its own inherits those of the QML that loads
   # it, so its Color is the palette only if every loader imports qs.Commons.
   for file in "${js[@]}"; do
-    { mentions "$file" || ambiguous "$file"; } && ! grep -Eq "$JS_HEADER" "$file" || continue
+    if grep -Eq "$JS_HEADER" "$file"; then
+      continue
+    fi
+    if ! mentions "$file" && ! ambiguous "$file"; then
+      continue
+    fi
     mapfile -t loaders < <(importers "$file")
     (( ${#loaders[@]} )) || continue
     for importer in "${loaders[@]}"; do
       imported "$QML_COMMONS|$QML_ALIAS" "$importer" >/dev/null || continue 2
     done
     if ambiguous "$file"; then
-      warn "skipped $file: Color is also used as a plain name"
+      warn "skipped $file: Color is also used as a plain name, or source syntax is ambiguous; qualify the palette manually"
       continue
     fi
     # Every loader must carry the alias before the script may rely on it.

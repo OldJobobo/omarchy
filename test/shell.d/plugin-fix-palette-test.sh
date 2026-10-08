@@ -266,6 +266,103 @@ expect_file "$plugin/Widget.qml" $'import qs.Commons as Commons\nimport qs.Commo
   "a target with a space before its colon is qualified"
 pass "a target with a space before its colon is qualified"
 
+# --- Literal preservation and exact helper paths -----------------------------
+
+plugin="$TMPDIR/literals"
+write_manifest "$plugin" acme.literals
+cat >"$plugin/Widget.qml" <<'QML'
+import QtQuick
+import qs.Commons
+Item {
+  property string label: "Use Color.accent"
+  property string key: 'lookup: Color.foreground'
+  property string escaped: "quote \" then Color.background // not a comment"
+  property string template: `Use Color.accent`
+  /* documentation
+     Use Color.accent; target: Color
+  */
+  property color accent: Color.accent /* Use Color.accent */
+}
+QML
+expected=$(cat <<'QML'
+import QtQuick
+import qs.Commons as Commons
+import qs.Commons
+Item {
+  property string label: "Use Color.accent"
+  property string key: 'lookup: Color.foreground'
+  property string escaped: "quote \" then Color.background // not a comment"
+  property string template: `Use Color.accent`
+  /* documentation
+     Use Color.accent; target: Color
+  */
+  property color accent: Commons.Color.accent /* Use Color.accent */
+}
+QML
+)
+fix "$plugin" >/dev/null
+expect_file "$plugin/Widget.qml" "$expected" "only real palette references change, not strings or comments"
+pass "complete QML strings, escapes, template text, and multiline/inline comments are preserved"
+
+plugin="$TMPDIR/literal-only"
+write_manifest "$plugin" acme.literalonly
+printf 'import qs.Commons\nItem { property string label: "Use Color.accent" }\n' >"$plugin/Widget.qml"
+before=$(sha256sum <"$plugin/Widget.qml")
+fix "$plugin" >/dev/null
+[[ $(sha256sum <"$plugin/Widget.qml") == "$before" ]] || fail "literal-only files are untouched"
+pass "literal-only palette mentions do not trigger alias insertion or rewriting"
+
+plugin="$TMPDIR/js-literals"
+write_manifest "$plugin" acme.jsliterals
+printf 'import qs.Commons\nimport "Model.js" as Model\nItem {}\n' >"$plugin/Widget.qml"
+cat >"$plugin/Model.js" <<'JS'
+function label() { return "Use Color.accent" }
+function key() { return 'lookup: Color.foreground' }
+/* documentation: Color.accent */
+function accent() { return Color.accent }
+JS
+fix "$plugin" >/dev/null
+expect_file "$plugin/Model.js" "$(cat <<'JS'
+function label() { return "Use Color.accent" }
+function key() { return 'lookup: Color.foreground' }
+/* documentation: Color.accent */
+function accent() { return Commons.Color.accent }
+JS
+)" "JavaScript data and comments are not palette references"
+pass "inherited JavaScript preserves strings and comments while qualifying actual palette access"
+
+for source in 'Item { property color accent: Color.accent; property string label: `${Color.accent}` }' 'Item { property color accent: Color.accent; function match(s) { return /Use Color.accent/.test(s) } }'; do
+  plugin="$TMPDIR/ambiguous-literals"
+  rm -rf "$plugin"
+  write_manifest "$plugin" acme.ambiguousliterals
+  printf 'import qs.Commons\n%s\n' "$source" >"$plugin/Widget.qml"
+  before=$(sha256sum <"$plugin/Widget.qml")
+  output=$(fix "$plugin" 2>&1)
+  [[ $(sha256sum <"$plugin/Widget.qml") == "$before" ]] || fail "ambiguous expression files remain unchanged"
+  grep -qF "skipped" <<<"$output" || fail "ambiguous expressions report a skip" "$output"
+done
+pass "interpolated templates and regex-like syntax are skipped rather than changing literal data"
+
+plugin="$TMPDIR/same-named-helpers"
+write_manifest "$plugin" acme.samehelpers
+mkdir -p "$plugin/a" "$plugin/b" "$plugin/loaders"
+printf 'import qs.Commons\nimport "Model.js" as Model\nItem {}\n' >"$plugin/a/Main.qml"
+printf 'import QtQuick\nimport "Model.js" as Model\nItem {}\n' >"$plugin/b/Main.qml"
+printf 'import qs.Commons\nimport "./Model.js" as Model\nItem {}\n' >"$plugin/a/Another.qml"
+printf 'import qs.Commons\nimport "../a/Model.js" as Model\nItem {}\n' >"$plugin/loaders/Main.qml"
+printf '/* example\nimport "../a/Model.js" as Model\n*/\nimport QtQuick\nItem {}\n' >"$plugin/loaders/Comment.qml"
+printf 'import QtQuick\nItem { property string note: `import "../a/Model.js" as Model` }\n' >"$plugin/loaders/Literal.qml"
+printf 'function accent() { return Color.accent }\n' >"$plugin/a/Model.js"
+printf 'function accent() { return Color.accent }\n' >"$plugin/b/Model.js"
+fix "$plugin" >/dev/null
+expect_file "$plugin/a/Model.js" 'function accent() { return Commons.Color.accent }' "a helper uses only its actual importers"
+expect_file "$plugin/b/Model.js" 'function accent() { return Color.accent }' "a same-named helper without Commons remains unchanged"
+for file in "$plugin/a/Main.qml" "$plugin/a/Another.qml" "$plugin/loaders/Main.qml"; do
+  grep -qF 'import qs.Commons as Commons' "$file" || fail "every actual loader receives the alias" "$file"
+done
+expect_file "$plugin/b/Main.qml" $'import QtQuick\nimport "Model.js" as Model\nItem {}' "an unrelated loader stays unchanged"
+pass "same-named helpers are matched by resolved QML-relative paths, including dot and parent segments"
+
 # --- Files it cannot read ----------------------------------------------------
 
 plugin="$TMPDIR/hostile"
