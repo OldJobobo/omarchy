@@ -8,7 +8,7 @@ Item {
   id: root
 
   property real phase: 0            // 0 new, 0.25 first quarter, 0.5 full
-  property color color: Color.foreground
+  property color color: ShellColor.foreground
 
   onPhaseChanged: canvas.requestPaint()
   onColorChanged: canvas.requestPaint()

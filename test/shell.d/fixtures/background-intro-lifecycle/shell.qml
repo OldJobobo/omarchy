@@ -33,7 +33,7 @@ ShellRoot {
       intro.prepareTheme(Quickshell.env("INTRO_TEST_COVER"), "theme-one", Qt.btoa('background = "#123456"'), "")
       test.check(intro.themeCoverStatus("theme-one") === "loading", "the cover waits for decoding and presentation")
       test.check(intro.themeStatus("theme-one") === "pending", "app retints wait for the intro reveal")
-      test.check(!Qt.colorEqual(Commons.Color.background, "#123456"), "the palette waits for OWE's first frame")
+      test.check(!Qt.colorEqual(Commons.ShellColor.background, "#123456"), "the palette waits for OWE's first frame")
       intro.finishTheme("superseded-theme")
       test.check(intro.themeToken === "theme-one", "an older intro cannot release the pending handoff")
     }
@@ -84,7 +84,7 @@ ShellRoot {
       }
       stop()
       test.check(!intro.cover && intro.checked, "OWE taking the background releases the cover")
-      test.check(intro.themeToken === "" && Qt.colorEqual(Commons.Color.background, "#123456"), "first-frame handoff starts the palette and wallpaper fade together")
+      test.check(intro.themeToken === "" && Qt.colorEqual(Commons.ShellColor.background, "#123456"), "first-frame handoff starts the palette and wallpaper fade together")
       retainedBackground.suspended = false
       Qt.callLater(function() { test.check(!intro.cover, "resuming the retained background cannot cover or retry playback") })
       completionDeadline = Date.now() + 3000
@@ -108,11 +108,11 @@ ShellRoot {
       test.check(intro.themeStatus("theme-one") === "ready", "the completed crossfade releases app retints")
       intro.prepareTheme("", "failed-theme", Qt.btoa('background = "#654321"'), "")
       intro.finishTheme("failed-theme")
-      test.check(Qt.colorEqual(Commons.Color.background, "#654321"), "failed playback still releases its pending palette")
+      test.check(Qt.colorEqual(Commons.ShellColor.background, "#654321"), "failed playback still releases its pending palette")
       intro.prepareTheme("", "cancelled-theme", Qt.btoa('background = "#abcdef"'), "")
       intro.cancelTheme()
       intro.finishTheme("cancelled-theme")
-      test.check(Qt.colorEqual(Commons.Color.background, "#654321") && !intro.themeToken, "a superseding theme cannot be overwritten by an older completion")
+      test.check(Qt.colorEqual(Commons.ShellColor.background, "#654321") && !intro.themeToken, "a superseding theme cannot be overwritten by an older completion")
       test.check(!intro.cover, "launcher completion leaves the still uncovered")
       if (!test.failed) console.log("RESULT pass")
       Qt.quit()

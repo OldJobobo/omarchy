@@ -80,8 +80,8 @@ Item {
     framePoll.stop()
     themeFallback.stop()
     if (themeToken) {
-      Color.loadColors(Util.decodeBase64(themeColors))
-      Color.loadShell(Util.decodeBase64(themeShell))
+      ShellColor.loadColors(Util.decodeBase64(themeColors))
+      ShellColor.loadShell(Util.decodeBase64(themeShell))
       Style.scheduleRefresh()
     }
     cover = false
@@ -289,7 +289,7 @@ Item {
       Rectangle {
         anchors.fill: parent
         visible: root.cover
-        color: Color.background
+        color: ShellColor.background
       }
 
       Image {

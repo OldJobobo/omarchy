@@ -24,10 +24,10 @@ ShellRoot {
     interval: 1300
     running: true
     onTriggered: {
-      if (Qt.colorEqual(Color.accent, "#123456")) {
+      if (Qt.colorEqual(ShellColor.accent, "#123456")) {
         console.log("RESULT pass")
       } else {
-        console.log("RESULT fail previous colors returned: " + Color.accent)
+        console.log("RESULT fail previous colors returned: " + ShellColor.accent)
       }
       Qt.quit()
     }

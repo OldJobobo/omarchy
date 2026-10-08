@@ -467,7 +467,7 @@ Item {
 
     WlSessionLockSurface {
       id: lockSurface
-      color: Color.background
+      color: ShellColor.background
 
       LockView {
         id: lockView

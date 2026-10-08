@@ -45,6 +45,15 @@ Saving a file anywhere under `~/.config/omarchy/plugins/` reloads plugin code
 automatically. If a change somehow fails to apply, force a reload with
 `omarchy-shell shell rescanPlugins`.
 
+## Theme Colors in Plugin QML
+
+Plugin QML gets theme colors from the `ShellColor` singleton in `qs.Commons`
+(`import qs.Commons`, then `ShellColor.accent`, `ShellColor.bar.background`).
+Never write `Color.` for theme colors: since Qt 6.12, `Color` is Qt's own
+`QtQuick` singleton, and in a file with `import QtQuick` it resolves to Qt's
+object, so every themed color comes out undefined. When fixing an older plugin
+whose colors went blank or black, replace `Color.` with `ShellColor.`.
+
 ## Idle and Lock
 
 Set `idle.screensaver` and `idle.lock` in `~/.config/omarchy/shell.json`,

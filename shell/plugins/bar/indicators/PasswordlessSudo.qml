@@ -15,7 +15,7 @@ BarIndicator {
   activeTooltipText: "Disable Passwordless Sudo"
   inactiveTooltipText: "Passwordless Sudo"
   useActiveColor: true
-  activeColor: Color.urgent
+  activeColor: ShellColor.urgent
 
   function refresh() {
     if (!root.bar) return

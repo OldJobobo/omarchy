@@ -87,6 +87,8 @@ A plugin is a directory with a `manifest.json` and some QML. The manifest declar
 
 A plugin can declare several kinds at once — the media plugin is both a `service` and a `bar-widget`. Bar widgets get an extra `barWidget` block with a display name, a category, an optional `defaultSection`, and `allowMultiple`, which says whether it makes sense to have more than one on the bar. Most widgets set it to `false`; spacers and indicators set it to `true`.
 
+For theme colors, `import qs.Commons` and use the `ShellColor` singleton: `ShellColor.accent`, `ShellColor.foreground`, `ShellColor.bar.background` and so on, which follow the active theme. Don't reach for `Color` — since Qt 6.12, that name belongs to Qt itself, and in any file with `import QtQuick` it quietly gives you Qt's object instead of the theme.
+
 Before you publish anything, check it:
 
 ```
