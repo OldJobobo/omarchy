@@ -122,15 +122,17 @@ for plugin in sorted(plugins.iterdir()):
       if add_import:
         newline = "\r\n" if "\r\n" in text else "\n"
         directive = (".import qs.Commons 1.0 as " if file.suffix == ".js" else "import qs.Commons as ") + alias
-        # Retain unqualified imports: other built-in singleton names still
-        # depend on them. Place JS imports after .pragma library, if present.
-        lines = text.splitlines(keepends=True)
-        # Header offsets come from masked source, so a commented-out import
-        # can neither select an alias nor become the insertion point.
-        position = max((masked[:header.end()].count("\n") + 1 for header in headers), default=0)
-        if position and not lines[position - 1].endswith(("\n", "\r")):
-          lines[position - 1] += newline
-        lines.insert(position, directive + newline)
-        text = "".join(lines)
+        # Insert before the first code token, after all headers AND their
+        # trailing comments. An import-line newline may still be inside a
+        # multiline block comment. Retain every existing import and pragma.
+        position = code[0].start()
+        line_start = text.rfind("\n", 0, position) + 1
+        if not text[line_start:position].strip():
+          position = line_start
+          insertion = directive + newline
+        else:
+          # A comment can close on the same line as the first code token.
+          insertion = newline + directive + newline
+        text = text[:position] + insertion + text[position:]
       file.write_bytes(text.encode("utf-8"))
 PY

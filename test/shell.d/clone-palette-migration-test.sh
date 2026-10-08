@@ -77,6 +77,12 @@ Item {
   commented_insertion = fixture("commented-insertion", commented_insertion_source)
   commented_js_source = '.pragma library\n/*\n.import qs.Commons 1.0 as Palette\n.pragma library\n*/\nfunction accent() { return Color.accent }\n'
   commented_js = fixture("commented-js", commented_js_source, filename="Model.js")
+  trailing_import_source = "import QtQuick\nimport qs.Commons /* explanation\nstill inside the comment */\nItem { property color accent: Color.accent }\n"
+  trailing_import = fixture("trailing-import-comment", trailing_import_source)
+  trailing_pragma_source = '.pragma library /* explanation\nstill inside the comment */\nfunction accent() { return Color.accent }\n'
+  trailing_pragma = fixture("trailing-pragma-comment", trailing_pragma_source, filename="Model.js")
+  same_line_source = "import QtQuick\nimport qs.Commons\n/* explanation */ Item { property color accent: Color.accent }\n"
+  same_line = fixture("same-line-comment", same_line_source)
   local_commons = fixture("local-commons", "import QtQuick\nimport qs.Commons\nItem { function accent() { const Commons = {}; return Color.accent } }\n")
   division_source = "import QtQuick\nimport qs.Commons\nItem { property real a: width / 2; property real b: (width - 1) / 2; property real c: Math.round(width) / 2; property color accent: Color.accent }\n"
   division = fixture("division", division_source)
@@ -134,9 +140,12 @@ Item {
   unchanged.extend([(external_file, external_file.read_bytes()), (linked_manifest, linked_manifest.read_bytes())])
 
   diagnostics = run()
-  check(commented_alias.read_text() == commented_alias_source.replace("import qs.Commons\n", "import qs.Commons\nimport qs.Commons as Commons\n", 1).replace("accent: Color.accent", "accent: Commons.Color.accent"), "commented aliases cannot select the palette namespace")
-  check(commented_insertion.read_text() == commented_insertion_source.replace("import QtQuick\n", "import QtQuick\nimport qs.Commons as Commons\n", 1).replace("accent: Color.accent", "accent: Commons.Color.accent"), "commented imports and pragmas cannot become insertion points")
-  check(commented_js.read_text() == commented_js_source.replace(".pragma library\n", ".pragma library\n.import qs.Commons 1.0 as Commons\n", 1).replace("return Color.accent", "return Commons.Color.accent"), "JavaScript ignores commented module imports and pragmas")
+  check(commented_alias.read_text() == commented_alias_source.replace("Item {", "import qs.Commons as Commons\nItem {", 1).replace("accent: Color.accent", "accent: Commons.Color.accent"), "commented aliases cannot select the palette namespace")
+  check(commented_insertion.read_text() == commented_insertion_source.replace("Item {", "import qs.Commons as Commons\nItem {", 1).replace("accent: Color.accent", "accent: Commons.Color.accent"), "commented imports and pragmas cannot become insertion points")
+  check(commented_js.read_text() == commented_js_source.replace("function accent", ".import qs.Commons 1.0 as Commons\nfunction accent", 1).replace("return Color.accent", "return Commons.Color.accent"), "JavaScript ignores commented module imports and pragmas")
+  check(trailing_import.read_text() == trailing_import_source.replace("Item {", "import qs.Commons as Commons\nItem {", 1).replace("accent: Color.accent", "accent: Commons.Color.accent"), "import-line multiline comments cannot swallow the new QML import")
+  check(trailing_pragma.read_text() == trailing_pragma_source.replace("function accent", ".import qs.Commons 1.0 as Commons\nfunction accent", 1).replace("return Color.accent", "return Commons.Color.accent"), "pragma-line multiline comments cannot swallow the new JavaScript import")
+  check(same_line.read_text() == same_line_source.replace("Item {", "\nimport qs.Commons as Commons\nItem {", 1).replace("accent: Color.accent", "accent: Commons.Color.accent"), "comments ending on the root object's line remain outside the new import")
   check("as OmarchyCommons" in local_commons.read_text() and "return OmarchyCommons.Color.accent" in local_commons.read_text() and "const Commons = {}" in local_commons.read_text(), "new import aliases avoid locally declared names")
   check(division.read_text() == division_source.replace("import qs.Commons\n", "import qs.Commons\nimport qs.Commons as Commons\n").replace("accent: Color.accent", "accent: Commons.Color.accent"), "ordinary expression divisions remain unchanged while palette references migrate")
   for file, before in ambiguous:
@@ -153,7 +162,7 @@ Item {
   check("import qs.Commons as OmarchyCommons" in collision.read_text() and "a: OmarchyCommons.Color.accent" in collision.read_text(), "avoids an occupied Commons import alias")
   check("import qs.Commons as Commons\n" in nested.read_text() and "Commons.Color.accent" in nested.read_text(), "migrates nested clone QML and adds a missing palette import")
   check(crlf.read_bytes() == b"import QtQuick\r\nimport qs.Commons\r\nimport qs.Commons as Commons\r\nItem { property color a: Commons.Color.accent }\r\n", "preserves CRLF line endings")
-  check(js.read_text().startswith(".pragma library\n.import qs.Commons 1.0 as Commons\n"), "JavaScript uses module import syntax after its library pragma")
+  check(js.read_text().startswith(".pragma library\n") and '.import qs.Commons 1.0 as Commons\nfunction accent' in js.read_text(), "JavaScript uses module import syntax after its library pragma and comments")
   check('return Commons.Color.accent' in js.read_text() and '// Color.accent' in js.read_text() and 'return "Color.accent"' in js.read_text(), "JavaScript rewrites code but preserves comments and strings")
   check("return Palette.Color.accent" in js_alias.read_text() and js_alias.read_text().count(".import") == 1, "JavaScript reuses an existing module alias")
   for file, before in unchanged:
