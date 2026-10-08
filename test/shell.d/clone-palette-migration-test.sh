@@ -26,7 +26,9 @@ with tempfile.TemporaryDirectory() as temporary:
   plugins = home / ".config/omarchy/plugins"
   environment = dict(os.environ, HOME=str(home))
   def run():
-    subprocess.run(["bash", "-euo", "pipefail", str(migration)], env=environment, check=True)
+    result = subprocess.run(["bash", "-euo", "pipefail", str(migration)], env=environment, check=True, capture_output=True, text=True)
+    print(result.stdout, end="")
+    return result.stderr
 
   run()
   check(not plugins.exists(), "missing plugin directory is a no-op")
@@ -69,6 +71,36 @@ Item {
   crlf = fixture("windows-lines", "import QtQuick\r\nimport qs.Commons\r\nItem { property color a: Color.accent }\r\n")
   js = fixture("javascript", '.pragma library\n// Color.accent\nfunction accent() { return Color.accent }\nfunction label() { return "Color.accent" }\n', filename="Model.js")
   js_alias = fixture("javascript-alias", '.pragma library\n.import qs.Commons 1.0 as Palette\nfunction accent() { return Color.accent }\n', filename="Model.js")
+  commented_alias_source = "import QtQuick\nimport qs.Commons\n/*\nimport qs.Commons as Palette\n*/\nItem { property color accent: Color.accent }\n"
+  commented_alias = fixture("commented-alias", commented_alias_source)
+  commented_insertion_source = "import QtQuick\n/*\nimport qs.Commons\npragma Singleton\n*/\nItem { property color accent: Color.accent }\n"
+  commented_insertion = fixture("commented-insertion", commented_insertion_source)
+  commented_js_source = '.pragma library\n/*\n.import qs.Commons 1.0 as Palette\n.pragma library\n*/\nfunction accent() { return Color.accent }\n'
+  commented_js = fixture("commented-js", commented_js_source, filename="Model.js")
+  local_commons = fixture("local-commons", "import QtQuick\nimport qs.Commons\nItem { function accent() { const Commons = {}; return Color.accent } }\n")
+  division_source = "import QtQuick\nimport qs.Commons\nItem { property real a: width / 2; property real b: (width - 1) / 2; property real c: Math.round(width) / 2; property color accent: Color.accent }\n"
+  division = fixture("division", division_source)
+  ambiguous = []
+  for name, source in [
+    ("template-interpolation", 'Item { property string accent: `${Color.accent}` }\n'),
+    ("nested-template", 'Item { property string accent: `${true ? `${Color.accent}` : ""}` }\n'),
+    ("regexp", 'Item { function matches(s) { return /Color.*/.test(s) } }\n'),
+    ("regexp-quoted", '''Item { function matches(s) { return /["']Color.*/.test(s) }; property color accent: Color.accent }\n'''),
+    ("regexp-after-control", 'Item { function matches(s) { if (s) /Color.*/.test(s) }; property color accent: Color.accent }\n'),
+    ("local-parameter", 'Item { function accent(Color) { return Color.accent } }\n'),
+    ("local-variable", 'Item { function accent() { const Color = {}; return Color.accent } }\n'),
+    ("local-destructure", 'Item { function accent({Color}) { return Color.accent } }\n'),
+    ("local-rest-parameter", 'Item { function accent(...Color) { return Color.accent } }\n'),
+    ("alias-rest-parameter", 'import qs.Commons as Palette\nItem { function accent(...Palette) { return Color.accent } }\n'),
+    ("regexp-after-debugger", 'Item { function matches(s) { debugger; /Color.*/.test(s) }; property color accent: Color.accent }\n'),
+    ("regexp-after-break", 'Item { function matches(s) { label: while(s) { break label\n/Color.*/.test(s) } }; property color accent: Color.accent }\n'),
+    ("standalone-palette", 'Item { function accent() { const palette = Color; return Color.accent } }\n'),
+    ("existing-alias-shadow", 'import qs.Commons as Palette\nItem { function accent(Palette) { return Color.accent } }\n'),
+    ("existing-commons-shadow", 'import qs.Commons as Commons\nItem { function accent() { const Commons = {}; return Color.accent } }\n'),
+    ("escaped-identifier", r'Item { function accent(\u0043olor) { return Color.accent } }' + '\n'),
+  ]:
+    file = fixture(name, "import QtQuick\nimport qs.Commons\n" + source)
+    ambiguous.append((file, file.read_bytes()))
   unchanged = []
   for name, manifest in [
     ("independent", {"id": "third.party"}),
@@ -101,7 +133,15 @@ Item {
   linked_manifest.with_name("manifest.json").symlink_to(external / "manifest.json")
   unchanged.extend([(external_file, external_file.read_bytes()), (linked_manifest, linked_manifest.read_bytes())])
 
-  run()
+  diagnostics = run()
+  check(commented_alias.read_text() == commented_alias_source.replace("import qs.Commons\n", "import qs.Commons\nimport qs.Commons as Commons\n", 1).replace("accent: Color.accent", "accent: Commons.Color.accent"), "commented aliases cannot select the palette namespace")
+  check(commented_insertion.read_text() == commented_insertion_source.replace("import QtQuick\n", "import QtQuick\nimport qs.Commons as Commons\n", 1).replace("accent: Color.accent", "accent: Commons.Color.accent"), "commented imports and pragmas cannot become insertion points")
+  check(commented_js.read_text() == commented_js_source.replace(".pragma library\n", ".pragma library\n.import qs.Commons 1.0 as Commons\n", 1).replace("return Color.accent", "return Commons.Color.accent"), "JavaScript ignores commented module imports and pragmas")
+  check("as OmarchyCommons" in local_commons.read_text() and "return OmarchyCommons.Color.accent" in local_commons.read_text() and "const Commons = {}" in local_commons.read_text(), "new import aliases avoid locally declared names")
+  check(division.read_text() == division_source.replace("import qs.Commons\n", "import qs.Commons\nimport qs.Commons as Commons\n").replace("accent: Color.accent", "accent: Commons.Color.accent"), "ordinary expression divisions remain unchanged while palette references migrate")
+  for file, before in ambiguous:
+    check(file.read_bytes() == before, "ambiguous " + file.parent.name + " remains byte-for-byte unchanged")
+    check("Skipped " + str(file) + ":" in diagnostics and "qualify the shell palette manually" in diagnostics, "ambiguous " + file.parent.name + " reports its path and manual repair guidance")
   expected = original.replace("custom: Color.accent", "custom: Commons.Color.accent").replace("spaced: Color /*", "spaced: Commons.Color /*").replace("target: Color;", "target: Commons.Color;")
   expected = expected.replace("import qs.Commons\n", "import qs.Commons\nimport qs.Commons as Commons\n")
   check(main.read_text() == expected, "rewrites palette members and Connections target while preserving custom code, glyphs, strings, and comments")
