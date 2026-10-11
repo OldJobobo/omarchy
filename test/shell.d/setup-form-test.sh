@@ -63,6 +63,8 @@ trap 'if [[ ${FUNCNAME[0]:-} == "$PROMPT_FN" ]]; then printf "returned\n" >>"$MA
 
 printf 'keyboard=%s\n' "${keyboard:-}"
 printf 'keyboard_label=%s\n' "${keyboard_label:-}"
+printf 'keyboard_input_method=%s\n' "${keyboard_input_method:-}"
+printf 'keyboard_xkb_layout=%s\n' "${keyboard_xkb_layout:-}"
 printf 'username=%s\n' "${username:-}"
 printf 'password=%s\n' "${password:-}"
 printf 'password_confirmation=%s\n' "${password_confirmation:-}"
@@ -133,6 +135,19 @@ assert_status 0 "keyboard prompt succeeds"
 grep -qF -- '--selected English (US)' "$GUM_ARGS" || fail "keyboard prompt preselects English (US)"
 pass "keyboard prompt maps the chosen label to its keymap"
 
+for selection in 'Japanese|jp106|mozc|' 'Japanese (US keyboard)|us|mozc|' 'Korean|us|hangul|kr' 'Lao|us|none|la' 'Chinese (Simplified, Pinyin)|us|pinyin|' 'Chinese (Traditional, Zhuyin)|us|chewing|'; do
+  IFS='|' read -r label keymap method layout <<< "$selection"
+  run_prompt omarchy_prompt_keyboard "0:$label"
+  assert_status 0 "$label can be selected at install"
+  [[ $(field keyboard) == "$keymap" && $(field keyboard_input_method) == "$method" && $(field keyboard_xkb_layout) == "$layout" ]] ||
+    fail "$label carries a real console keymap and a separate input preference"
+done
+pass "language keyboard choices carry their keymap, input method, and desktop override"
+
+keyboard_input_method=hangul keyboard_xkb_layout=kr omarchy_persist_input_selection "$tmp_dir/target"
+[[ $(<"$tmp_dir/target/etc/omarchy/input-method") == $'INPUT_METHOD=hangul\nXKB_LAYOUT=kr' ]] || fail "first-boot setup persists the selection for user finalization"
+pass "first-boot setup persists the selection for user finalization"
+
 run_prompt omarchy_prompt_keyboard "1:"
 assert_status "$OMARCHY_FORM_BACK" "keyboard prompt reports Esc as back"
 assert_returned "keyboard prompt survives Esc under set -e"
@@ -144,10 +159,11 @@ pass "keyboard prompt propagates Esc and Ctrl+C without dying under set -e"
 
 # Username
 
-TAKEN_USERS=dhh run_prompt omarchy_prompt_username "0:Not A Username" "0:root" "0:dhh" "0:david"
+TAKEN_USERS=dhh run_prompt omarchy_prompt_username "0:Not A Username" "0:root" "0:cups-browsed" "0:dhh" "0:david"
 assert_status 0 "username prompt accepts a valid name"
 [[ $(field username) == "david" ]] || fail "username prompt keeps re-asking until the name is valid"
 assert_notices "username prompt explains each rejection" "Username must be alphanumeric with no spaces
+Username is reserved for system
 Username is reserved for system
 That username already exists on this machine"
 pass "username prompt rejects malformed, reserved, and taken names"

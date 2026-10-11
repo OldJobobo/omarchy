@@ -2,44 +2,23 @@
 name: omarchy
 description: >
   REQUIRED for end-user customization of Linux desktop, window manager, or system config.
-  Use when editing ~/.config/hypr/, ~/.config/omarchy/,
+  Use when editing ANY file in ~/.config/, ~/.config/hypr/, ~/.config/omarchy/,
   ~/.config/alacritty/, ~/.config/foot/, ~/.config/kitty/, or ~/.config/ghostty/.
-  Triggers: Hyprland, window rules, animations, keybindings, monitors, gaps, borders,
-  blur, opacity, omarchy-shell, bar, terminal config, themes, background,
-  night light, idle, lock screen, screenshots, reminders, layer rules, workspace
-  settings, display config, user-facing omarchy commands, diagnosing or reporting
-  Omarchy bugs, suggesting Omarchy features, and explicit requests to contribute
-  fixes upstream. Omarchy source development remains excluded unless the user
-  explicitly asks for a change to Omarchy itself.
+  Triggers: Hyprland, window rules, window behavior, animations, keybindings, monitors, gaps, borders,
+  blur, opacity, omarchy-shell, bar, widgets, terminal config, themes, fonts, background,
+  night light, idle, lock screen, screenshots, screen recording, reminders, layer rules, workspace
+  settings, display config, appearance changes, user-facing omarchy commands, diagnosing or reporting
+  Omarchy bugs, suggesting Omarchy features, and explicit requests to contribute fixes upstream.
+  Omarchy source development remains excluded unless the user explicitly asks for a change to Omarchy itself.
 ---
 
 # Omarchy Skill
 
-Manage [Omarchy](https://omarchy.org/) Linux systems - a beautiful, modern, opinionated Arch Linux distribution with Hyprland.
+Manage [Omarchy](https://omarchy.org/) Linux systems - a beautiful, fun, agentic Arch Linux distribution with Hyprland.
 
 This skill is for end-user customization on installed systems. It also routes
 bug diagnosis, reporting, and explicit requests to contribute upstream fixes.
 Source-development conventions come from the Omarchy checkout itself.
-
-## When This Skill MUST Be Used
-
-**ALWAYS invoke this skill for requests involving ANY of these:**
-
-- Editing ANY file in `~/.config/hypr/` (window rules, animations, keybindings, monitors, etc.)
-- Editing `~/.config/omarchy/shell.json` (status bar layout, widgets)
-- Editing terminal configs (alacritty, foot, kitty, ghostty)
-- Editing ANY file in `~/.config/omarchy/`
-- Window behavior, animations, opacity, blur, gaps, borders
-- Layer rules, workspace settings, display/monitor configuration
-- Themes, backgrounds, fonts, appearance changes
-- User-facing `omarchy` commands (`omarchy theme ...`, `omarchy refresh ...`, `omarchy restart ...`, etc.)
-- Diagnosing or reporting Omarchy bugs and suggesting Omarchy features
-- Explicit requests to implement or prepare upstream Omarchy fixes
-- Screenshots, screen recording, reminders, night light, idle behavior, lock screen
-
-**If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
-
-**Do NOT start Omarchy source development unless the user explicitly asks for a change to Omarchy itself.** Diagnosing, reporting, or customizing is not that request. For an explicit contribution request, read [`contributing.md`](contributing.md) for scope and checkout safeguards, then follow the Omarchy checkout's repository instructions.
 
 ## Topic Guides
 
@@ -275,14 +254,14 @@ omarchy reminder clear
 
 ## Source Development Scope
 
-This skill does not replace the repository instructions for Omarchy source development. Enter that workflow only when the user explicitly asks for a change to Omarchy itself and after following the scope and checkout safeguards in [`contributing.md`](contributing.md).
+This skill does not replace the repository instructions for Omarchy source development. Enter that workflow only when the user explicitly asks for a change to Omarchy itself — diagnosing, reporting, or customizing is not that request — and after following the scope and checkout safeguards in [`contributing.md`](contributing.md).
 
 Never treat the packaged files in `/usr/share/omarchy/` as a development checkout. Source changes, migrations, and `omarchy dev ...` workflows belong in an Omarchy source checkout and follow that checkout's repository instructions.
 
 ## Example Requests
 
 - "Change my theme to catppuccin" -> `omarchy theme set catppuccin`
-- "Add a keybinding for Super+E to open file manager" -> Check existing bindings first, call `hl.unbind` if needed, then `o.bind` in `~/.config/hypr/bindings.lua`
+- "Add a keybinding for Super+E to open file manager" -> Check existing bindings first, then use `o.rebind` to replace one or `o.bind` to add one in `~/.config/hypr/bindings.lua`
 - "Configure my external monitor" -> Edit `~/.config/hypr/monitors.lua`
 - "Make the window gaps smaller" -> Edit `~/.config/hypr/looknfeel.lua`
 - "Turn on night light" -> `omarchy toggle nightlight` (for time-based schedules, edit `~/.config/hypr/hyprsunset.conf` profiles, then `omarchy restart hyprsunset`)

@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "Model.js" as Model
 
@@ -40,7 +41,9 @@ Panel {
   property int viewYear: today.getFullYear()
   property int viewMonth: today.getMonth()
 
-  readonly property date viewDate: new Date(viewYear, viewMonth, 1)
+  // Local noon, so a first of the month with no midnight (Havana, April 2012)
+  // still names its own month; UTC would name the previous one west of Greenwich.
+  readonly property date viewDate: new Date(viewYear, viewMonth, 1, 12)
   readonly property bool viewingCurrentMonth: viewYear === today.getFullYear() && viewMonth === today.getMonth()
 
   // Pinned to today, not to the month being browsed — stepping through the
@@ -75,7 +78,7 @@ Panel {
 
   // Guarded so the widget renders before the bar is injected (the bar-widget
   // contract instantiates it bare).
-  readonly property color contentForeground: bar ? bar.foreground : Color.foreground
+  readonly property color contentForeground: bar ? bar.foreground : Commons.Color.foreground
   readonly property string contentFontFamily: bar ? bar.fontFamily : Style.font.family
 
   readonly property int cellWidth: Style.space(52)
@@ -119,7 +122,9 @@ Panel {
   // Summoning by hotkey moves no pointer, so a hover the bar was still
   // holding must not keep the center indicators revealed behind the panel.
   function setCenterHoverRevealSuppressed(value) {
-    if (root.bar && "centerHoverRevealSuppressed" in root.bar)
+    if (root.bar && typeof root.bar.setCenterHoverRevealSuppressed === "function")
+      root.bar.setCenterHoverRevealSuppressed(value)
+    else if (root.bar && "centerHoverRevealSuppressed" in root.bar)
       root.bar.centerHoverRevealSuppressed = value
   }
 
@@ -300,7 +305,7 @@ Panel {
                 anchors.baseline: heroDate.baseline
                 text: "󰃭"
                 color: heroMouse.containsMouse
-                  ? Style.hoverStateColor(root.contentForeground, Color.accent)
+                  ? Style.hoverStateColor(root.contentForeground, Commons.Color.accent)
                   : root.contentForeground
                 font.family: root.contentFontFamily
                 // Decorative, and deliberately outside the Style.font.*
@@ -311,10 +316,11 @@ Panel {
 
               Text {
                 id: heroDate
+                textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 text: Qt.formatDate(root.today, "MMMM d")
                 color: heroMouse.containsMouse
-                  ? Style.hoverStateColor(root.contentForeground, Color.accent)
+                  ? Style.hoverStateColor(root.contentForeground, Commons.Color.accent)
                   : root.contentForeground
                 font.family: root.contentFontFamily
                 font.pixelSize: 52
@@ -413,6 +419,7 @@ Panel {
 
               Text {
                 id: yearLabel
+                textFormat: Text.PlainText
                 visible: !root.editingLife
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
@@ -425,6 +432,7 @@ Panel {
 
               Text {
                 id: yearPercent
+                textFormat: Text.PlainText
                 visible: !root.editingLife
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -450,9 +458,9 @@ Panel {
                   width: Math.round(parent.width * root.yearDone)
                   height: parent.height
                   radius: parent.radius
-                  color: Style.selectedStateColor(root.contentForeground, Color.accent)
+                  color: Style.selectedStateColor(root.contentForeground, Commons.Color.accent)
 
-                  Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                  Behavior on width { NumberAnimation { duration: Style.duration(160); easing.type: Easing.OutCubic } }
                 }
               }
             }
@@ -485,6 +493,7 @@ Panel {
 
               Text {
                 id: lifePercent
+                textFormat: Text.PlainText
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.lifeDonePercent + "%"
@@ -507,9 +516,9 @@ Panel {
                   width: Math.round(parent.width * root.lifeDone)
                   height: parent.height
                   radius: parent.radius
-                  color: Style.selectedStateColor(root.contentForeground, Color.accent)
+                  color: Style.selectedStateColor(root.contentForeground, Commons.Color.accent)
 
-                  Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                  Behavior on width { NumberAnimation { duration: Style.duration(160); easing.type: Easing.OutCubic } }
                 }
               }
 
@@ -569,14 +578,14 @@ Panel {
                   height: Style.space(16)
                   radius: Style.cornerRadius
                   color: weekStartMouse.containsMouse
-                    ? Style.hoverFillFor(root.contentForeground, Color.accent)
+                    ? Style.hoverFillFor(root.contentForeground, Commons.Color.accent)
                     : "transparent"
 
                   Text {
                     anchors.centerIn: parent
                     text: "W"
                     color: weekStartMouse.containsMouse
-                      ? Style.hoverStateColor(root.contentForeground, Color.accent)
+                      ? Style.hoverStateColor(root.contentForeground, Commons.Color.accent)
                       : Qt.darker(root.contentForeground, 1.9)
                     font.family: root.contentFontFamily
                     font.pixelSize: Style.font.caption
@@ -608,6 +617,7 @@ Panel {
                   model: root.weekdays
 
                   Text {
+                    textFormat: Text.PlainText
                     required property var modelData
                     width: root.cellWidth
                     height: Style.space(16)
@@ -631,6 +641,7 @@ Panel {
                   spacing: root.cellSpacing
 
                   Text {
+                    textFormat: Text.PlainText
                     width: root.weekColumnWidth
                     height: root.cellHeight
                     horizontalAlignment: Text.AlignHCenter
@@ -659,9 +670,10 @@ Panel {
                       // over a grid this quiet.
                       color: "transparent"
                       border.width: modelData.today ? Style.spacing.hairline : 0
-                      border.color: Style.normalBorderFor(root.contentForeground, Color.accent)
+                      border.color: Style.normalBorderFor(root.contentForeground, Commons.Color.accent)
 
                       Text {
+                        textFormat: Text.PlainText
                         anchors.centerIn: parent
                         text: modelData.day
                         color: modelData.inMonth
@@ -707,6 +719,7 @@ Panel {
 
               Text {
                 id: monthLabel
+                textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
                 // Fixed width so the chevrons hold still between a

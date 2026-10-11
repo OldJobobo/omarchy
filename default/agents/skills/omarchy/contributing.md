@@ -19,13 +19,13 @@ authorize publishing it. Before uploading diagnostics, creating an issue or
 discussion, or otherwise sharing results externally, ensure the user explicitly
 asks for that action or confirms the prepared contents and destination.
 
-Omarchy lives at https://github.com/basecamp/omarchy. Route requests to the
+Omarchy lives at https://github.com/omacom/omarchy. Route requests to the
 right place:
 
 - **Verified bugs** -> GitHub issues. Issues are for validated bugs only, not
   support requests.
 - **Feature ideas and suggestions** ->
-  https://github.com/basecamp/omarchy/discussions/categories/suggestions
+  https://github.com/omacom/omarchy/discussions/categories/suggestions
 - **Support and "is this a bug?" questions** -> the Discord community at
   https://omarchy.org/discord. Start here when the problem isn't clearly a bug
   in Omarchy itself.
@@ -54,7 +54,7 @@ drag-and-drop in the web form, so save the capture and hand the user the file
 path to attach (`gh` cannot upload media).
 
 For screen-recording failures specifically, rerun with
-`OMARCHY_SCREENRECORD_DEBUG=true` and attach `/tmp/omarchy-screenrecord.log`.
+`OMARCHY_SCREENRECORD_DEBUG=true` and attach `$XDG_RUNTIME_DIR/omarchy-screenrecord.log` (or `${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/omarchy-screenrecord.log` without a session runtime directory).
 
 Prepare the report for the user to review. Include what happened, what was
 expected, steps to reproduce, system details, the debug log URL or attached
@@ -64,7 +64,7 @@ the report or approves the prepared contents and destination.
 After that approval, file the issue with `gh` when available:
 
 ```bash
-gh issue create --repo basecamp/omarchy --title "..." --body "..."
+gh issue create --repo omacom/omarchy --title "..." --body "..."
 ```
 
 ## Submitting a PR
@@ -75,7 +75,7 @@ existing Omarchy source checkout when one is available. If a new checkout is
 needed, explain that to the user and get confirmation before creating it:
 
 ```bash
-gh repo fork basecamp/omarchy --clone
+gh repo fork omacom/omarchy --clone
 cd omarchy
 ```
 
