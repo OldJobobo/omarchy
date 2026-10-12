@@ -225,6 +225,13 @@ else
   skip "script is not installed"
 fi
 
-grep -qx 'blur=yes' "$ROOT/default/themed/foot.ini.tpl" || fail "foot starts ready to blur"
+# Check generated defaults rather than literal template lines: declarations
+# may override blur, but a stock theme must still be ready for Glassy at launch.
+next_theme="$home_dir/.local/state/omarchy/current/next-theme"
+mkdir -p "$next_theme"
+printf 'background = "#102030"\nforeground = "#ffffff"\n' >"$next_theme/colors.toml"
+run omarchy-theme-set-templates
+grep -qx 'blur=yes' "$next_theme/foot.ini" || fail "foot starts ready to blur"
+(( $(grep -c '^blur=' "$next_theme/foot.ini") == 1 )) || fail "foot starts with exactly one blur setting"
 grep -qx 'dynamic_background_opacity yes' "$ROOT/default/themed/kitty.conf.tpl" || fail "kitty starts ready to change opacity"
 pass "foot and kitty start ready for glass, since they read that only at launch"

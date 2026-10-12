@@ -1,6 +1,6 @@
 [window]
-opacity = {{ terminal_opacity }}
-blur = {{ terminal_blur }}
+{{ terminal_opacity_alacritty }}
+{{ terminal_blur_alacritty }}
 
 [colors.primary]
 background = "{{ background }}"

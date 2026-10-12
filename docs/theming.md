@@ -94,7 +94,11 @@ red = "#f7768e"
 blue = "#7aa2f7"
 ```
 
-`terminal_opacity` accepts a decimal from `0.0` (transparent) through `1.0` (opaque) and defaults to `1.0`. `terminal_blur` accepts `true` or `false` and defaults to `false`. When blur is enabled, `terminal_blur_radius` accepts an integer from `0` through `64` and defaults to `20`. Omarchy maps these shared values to Alacritty, Foot, Ghostty, and Kitty; terminals that only expose a blur toggle ignore the radius. Ghostty reads the theme file after `~/.config/ghostty/config`, so its generated config carries only the settings a theme declares, and the user's own opacity and blur stand otherwise.
+`terminal_opacity` accepts a decimal from `0.0` (transparent) through `1.0` (opaque). `terminal_blur` accepts `true` or `false`. When blur is enabled, `terminal_blur_radius` accepts an integer from `0` through `64` and defaults to `20` if omitted or invalid. Omarchy maps these shared values to Alacritty, Foot, Ghostty, and Kitty; terminals that only expose a blur toggle ignore the radius.
+
+Omitted or invalid opacity and blur declarations do not emit theme overrides; invalid values produce a warning. This preserves the existing terminal and Appearance > Window Transparency behavior: Glassy supplies opacity when the theme has not set it, while a valid explicit theme opacity (including `1.0`) is preserved. Choosing Opaque removes Glassy's additions but does not remove an explicit theme opacity. Foot retains its upstream `blur=yes` default when blur is undeclared or invalid, so terminals launched while opaque are ready for Glassy; an explicit `terminal_blur = false` emits exactly one `blur=no` setting instead. Ghostty reads the theme file after `~/.config/ghostty/config`, so explicitly declared theme settings override its user configuration; omitted settings do not.
+
+Running Foot windows receive the generated opacity on every theme switch; reopening is not necessary for opacity. Foot reads blur only at launch, so changing its blur setting requires reopening the terminal. Other terminals follow their normal configuration-reload behavior. Custom templates using the scalar `terminal_opacity`, `terminal_blur` and `terminal_blur_radius` values still receive their resolved defaults (`1.0`, `false` and `0` when blur is off); the stock templates use conditional, terminal-specific config lines to distinguish an omitted declaration from an explicit default.
 
 Any key can be referenced from a template with `{{ key }}`. The foundational
 shell palette is loaded from:

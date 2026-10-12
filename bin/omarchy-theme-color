@@ -180,10 +180,10 @@ parse_colors_file() {
 resolve_terminal_settings() {
   local declared_opacity="${THEME_COLORS[terminal_opacity]+set}"
   local declared_blur="${THEME_COLORS[terminal_blur]+set}"
-  local blur="${THEME_COLORS[terminal_blur]:-false}"
-  local opacity="${THEME_COLORS[terminal_opacity]:-1.0}"
-  local radius="${THEME_COLORS[terminal_blur_radius]:-20}"
-  local ghostty_blur
+  local blur="${THEME_COLORS[terminal_blur]-false}"
+  local opacity="${THEME_COLORS[terminal_opacity]-1.0}"
+  local radius="${THEME_COLORS[terminal_blur_radius]-20}"
+  local foot_blur ghostty_blur terminal
 
   # These settings are scalar, so anything after the value is a TOML comment.
   opacity="${opacity%%#*}"
@@ -194,13 +194,13 @@ resolve_terminal_settings() {
   radius="${radius%% *}"
 
   if [[ ! $opacity =~ ^(0([.][0-9]+)?|1([.]0+)?)$ ]]; then
-    printf 'omarchy-theme-color: invalid terminal_opacity %q; using 1.0\n' "$opacity" >&2
+    printf 'omarchy-theme-color: invalid terminal_opacity %q; ignoring override\n' "$opacity" >&2
     opacity="1.0"
     declared_opacity=""
   fi
 
   if [[ $blur != "true" && $blur != "false" ]]; then
-    printf 'omarchy-theme-color: invalid terminal_blur %q; using false\n' "$blur" >&2
+    printf 'omarchy-theme-color: invalid terminal_blur %q; ignoring override\n' "$blur" >&2
     blur="false"
     declared_blur=""
   fi
@@ -217,26 +217,38 @@ resolve_terminal_settings() {
 
   if [[ $blur == "true" ]]; then
     THEME_COLORS[terminal_blur_radius]="$radius"
-    THEME_COLORS[terminal_blur_foot]="yes"
+    foot_blur="yes"
     ghostty_blur="$radius"
   else
     THEME_COLORS[terminal_blur_radius]="0"
-    THEME_COLORS[terminal_blur_foot]="no"
+    foot_blur="no"
     ghostty_blur="false"
   fi
 
-  # Ghostty reads the theme file after ~/.config/ghostty/config, so a default
-  # here would override the user's own setting. Emit only what the theme sets.
+  # An absent or invalid declaration must not suppress Glassy or replace the
+  # user's settings. Keep scalar defaults for custom templates, but render
+  # complete config lines only for valid declarations in the stock templates.
+  for terminal in alacritty foot ghostty kitty; do
+    THEME_COLORS[terminal_opacity_$terminal]="# opacity is not set by this theme"
+    THEME_COLORS[terminal_blur_$terminal]="# blur is not set by this theme"
+  done
+
   if [[ $declared_opacity ]]; then
+    THEME_COLORS[terminal_opacity_alacritty]="opacity = $opacity"
+    THEME_COLORS[terminal_opacity_foot]="alpha=$opacity"
     THEME_COLORS[terminal_opacity_ghostty]="background-opacity = $opacity"
-  else
-    THEME_COLORS[terminal_opacity_ghostty]="# background-opacity is not set by this theme"
+    THEME_COLORS[terminal_opacity_kitty]="background_opacity $opacity"
   fi
 
   if [[ $declared_blur ]]; then
+    THEME_COLORS[terminal_blur_alacritty]="blur = $blur"
+    THEME_COLORS[terminal_blur_foot]="blur=$foot_blur"
     THEME_COLORS[terminal_blur_ghostty]="background-blur = $ghostty_blur"
+    THEME_COLORS[terminal_blur_kitty]="background_blur ${THEME_COLORS[terminal_blur_radius]}"
   else
-    THEME_COLORS[terminal_blur_ghostty]="# background-blur is not set by this theme"
+    # Foot reads blur only at launch. Preserve quattro's launch-ready default
+    # even while opaque, so a running terminal can later become Glassy.
+    THEME_COLORS[terminal_blur_foot]="blur=yes"
   fi
 }
 

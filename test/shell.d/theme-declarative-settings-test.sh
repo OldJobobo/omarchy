@@ -38,7 +38,7 @@ TOML
 }
 
 render() {
-  HOME="$home" OMARCHY_PATH="$ROOT" PATH="$ROOT/bin:$PATH" \
+  HOME="$home" XDG_STATE_HOME="$home/.local/state" OMARCHY_PATH="$ROOT" PATH="$ROOT/bin:$PATH" \
     "$ROOT/bin/omarchy-theme-set-templates" 2>"$test_tmp/stderr"
 }
 
@@ -64,13 +64,16 @@ pass "terminal appearance settings reach every generated terminal config"
 reset_theme
 sed -i '/^terminal_/d' "$next_theme/colors.toml"
 render
-grep -qx 'opacity = 1.0' "$next_theme/alacritty.toml" || fail "terminal opacity defaults to opaque"
-grep -qx 'blur = false' "$next_theme/alacritty.toml" || fail "Alacritty blur defaults off"
-grep -qx 'blur=no' "$next_theme/foot.ini" || fail "Foot blur defaults off"
+! grep -q '^opacity =' "$next_theme/alacritty.toml" || fail "Alacritty leaves undeclared opacity alone"
+! grep -q '^blur =' "$next_theme/alacritty.toml" || fail "Alacritty leaves undeclared blur alone"
+! grep -q '^alpha=' "$next_theme/foot.ini" || fail "Foot leaves undeclared opacity alone"
+grep -qx 'blur=yes' "$next_theme/foot.ini" || fail "Foot retains its launch-ready blur default"
+(( $(grep -c '^blur=' "$next_theme/foot.ini") == 1 )) || fail "Foot has exactly one blur setting"
 ! grep -q '^background-opacity' "$next_theme/ghostty.conf" || fail "Ghostty leaves an undeclared opacity to the user's config"
 ! grep -q '^background-blur' "$next_theme/ghostty.conf" || fail "Ghostty leaves an undeclared blur to the user's config"
-grep -qx 'background_blur 0' "$next_theme/kitty.conf" || fail "Kitty blur defaults off"
-pass "terminal appearance settings retain safe defaults"
+! grep -q '^background_opacity' "$next_theme/kitty.conf" || fail "Kitty leaves undeclared opacity alone"
+! grep -q '^background_blur' "$next_theme/kitty.conf" || fail "Kitty leaves undeclared blur alone"
+pass "omitted terminal settings preserve upstream defaults without duplicate Foot blur"
 
 blur_defaults="$test_tmp/blur-defaults.toml"
 printf 'terminal_blur = true\n' >"$blur_defaults"
@@ -113,6 +116,111 @@ grep -q 'invalid terminal_opacity' "$test_tmp/invalid-stderr" || fail "invalid o
 grep -q 'invalid terminal_blur ' "$test_tmp/invalid-stderr" || fail "invalid blur warns"
 grep -q 'invalid terminal_blur_radius' "$test_tmp/invalid-stderr" || fail "invalid radius warns"
 pass "invalid terminal settings warn and fall back"
+
+# Exercise real template generation followed by the real Glassy postprocessor,
+# not just scalar resolution. Each configuration must survive leaving Glassy.
+toggles="$home/.local/state/omarchy/toggles/hypr"
+mkdir -p "$toggles"
+
+assert_opacity() {
+  local opacity="$1" label="$2"
+  grep -qx "opacity = $opacity" "$next_theme/alacritty.toml" || fail "$label Alacritty opacity"
+  grep -qx "alpha=$opacity" "$next_theme/foot.ini" || fail "$label Foot opacity"
+  grep -qx "background-opacity = $opacity" "$next_theme/ghostty.conf" || fail "$label Ghostty opacity"
+  grep -qx "background_opacity $opacity" "$next_theme/kitty.conf" || fail "$label Kitty opacity"
+  local file pattern
+  for file in alacritty.toml foot.ini ghostty.conf kitty.conf; do
+    case "$file" in
+      alacritty.toml) pattern='^opacity =' ;;
+      foot.ini) pattern='^alpha=' ;;
+      ghostty.conf) pattern='^background-opacity =' ;;
+      kitty.conf) pattern='^background_opacity ' ;;
+    esac
+    (( $(grep -c "$pattern" "$next_theme/$file") == 1 )) || fail "$label $file has one opacity setting"
+  done
+}
+
+for declaration in omitted invalid empty radius-only translucent opaque blurred; do
+  reset_theme
+  sed -i '/^terminal_/d' "$next_theme/colors.toml"
+  case "$declaration" in
+    invalid) cat "$invalid_colors" >>"$next_theme/colors.toml" ;;
+    empty) printf 'terminal_opacity = ""\nterminal_blur = ""\n' >>"$next_theme/colors.toml" ;;
+    radius-only) printf 'terminal_blur_radius = 32\n' >>"$next_theme/colors.toml" ;;
+    translucent) printf 'terminal_opacity = 0.45\nterminal_blur = false\n' >>"$next_theme/colors.toml" ;;
+    opaque) printf 'terminal_opacity = 1.0\nterminal_blur = false\n' >>"$next_theme/colors.toml" ;;
+    blurred) printf 'terminal_opacity = 0.45\nterminal_blur = true\nterminal_blur_radius = 32\n' >>"$next_theme/colors.toml" ;;
+  esac
+  render
+  if [[ $declaration == "invalid" || $declaration == "empty" ]]; then
+    grep -q 'invalid terminal_opacity' "$test_tmp/stderr" || fail "$declaration opacity warns during render"
+    grep -q 'invalid terminal_blur ' "$test_tmp/stderr" || fail "$declaration blur warns during render"
+  fi
+  before="$test_tmp/before-$declaration"
+  mkdir -p "$before"
+  for file in alacritty.toml foot.ini ghostty.conf kitty.conf; do
+    cp "$next_theme/$file" "$before/$file"
+  done
+  touch "$toggles/window-glassy.lua"
+  render
+  case "$declaration" in
+    translucent | blurred) expected_opacity=0.45 ;;
+    opaque) expected_opacity=1.0 ;;
+    *) expected_opacity=0.65 ;;
+  esac
+  assert_opacity "$expected_opacity" "$declaration"
+  if [[ $declaration == "translucent" || $declaration == "opaque" ]]; then
+    grep -qx 'blur = false' "$next_theme/alacritty.toml" || fail "declared Alacritty blur stays off"
+    grep -qx 'blur=no' "$next_theme/foot.ini" || fail "declared Foot blur stays off"
+    grep -qx 'background-blur = false' "$next_theme/ghostty.conf" || fail "declared Ghostty blur stays off"
+    grep -qx 'background_blur 0' "$next_theme/kitty.conf" || fail "declared Kitty blur stays off"
+  elif [[ $declaration == "blurred" ]]; then
+    grep -qx 'blur = true' "$next_theme/alacritty.toml" || fail "declared Alacritty blur stays on"
+    grep -qx 'blur=yes' "$next_theme/foot.ini" || fail "declared Foot blur stays on"
+    grep -qx 'background-blur = 32' "$next_theme/ghostty.conf" || fail "declared Ghostty blur keeps its radius"
+    grep -qx 'background_blur 32' "$next_theme/kitty.conf" || fail "declared Kitty blur keeps its radius"
+  else
+    grep -qx 'blur=yes' "$next_theme/foot.ini" || fail "$declaration Foot remains ready for Glassy blur"
+    ! grep -q '^blur =' "$next_theme/alacritty.toml" || fail "$declaration Alacritty emits no blur override"
+    ! grep -q '^background-blur =' "$next_theme/ghostty.conf" || fail "$declaration Ghostty emits no blur override"
+    ! grep -q '^background_blur ' "$next_theme/kitty.conf" || fail "$declaration Kitty emits no blur override"
+  fi
+  (( $(grep -c '^blur=' "$next_theme/foot.ini") == 1 )) || fail "$declaration Foot has one blur setting under Glassy"
+  python3 - "$next_theme/alacritty.toml" <<'PY'
+import sys
+import tomllib
+from pathlib import Path
+tomllib.loads(Path(sys.argv[1]).read_text())
+PY
+  if command -v foot >/dev/null; then
+    HOME="$home" XDG_CONFIG_HOME="$home/.config" foot --check-config -c "$next_theme/foot.ini" >"$test_tmp/foot-check.log" 2>&1 ||
+      fail "$declaration generated Foot config is valid" "$(<"$test_tmp/foot-check.log")"
+  else
+    skip "$declaration Foot config validation: foot is not installed"
+  fi
+  if command -v ghostty >/dev/null; then
+    HOME="$home" XDG_CONFIG_HOME="$home/.config" XDG_CACHE_HOME="$home/.cache" \
+      ghostty +validate-config --config-file="$next_theme/ghostty.conf" >"$test_tmp/ghostty-check.log" 2>&1 ||
+      fail "$declaration generated Ghostty config is valid" "$(<"$test_tmp/ghostty-check.log")"
+  else
+    skip "$declaration Ghostty config validation: ghostty is not installed"
+  fi
+  # Repeat the real postprocessor, then remove only its additions in place.
+  HOME="$home" XDG_STATE_HOME="$home/.local/state" OMARCHY_PATH="$ROOT" \
+    "$ROOT/bin/omarchy-theme-set-glass" "$next_theme"
+  assert_opacity "$expected_opacity" "$declaration repeated"
+  rm "$toggles/window-glassy.lua"
+  HOME="$home" XDG_STATE_HOME="$home/.local/state" OMARCHY_PATH="$ROOT" \
+    "$ROOT/bin/omarchy-theme-set-glass" "$next_theme"
+  for file in alacritty.toml foot.ini ghostty.conf kitty.conf; do
+    cmp -s "$before/$file" "$next_theme/$file" || fail "$declaration leaving Glassy restores $file byte for byte"
+  done
+  render
+  for file in alacritty.toml foot.ini ghostty.conf kitty.conf; do
+    cmp -s "$before/$file" "$next_theme/$file" || fail "$declaration opaque rerender preserves $file"
+  done
+  pass "$declaration terminal declarations compose with Glassy and survive switching it off"
+done
 
 reset_theme
 cat >"$next_theme/hyprland.toml" <<'TOML'
