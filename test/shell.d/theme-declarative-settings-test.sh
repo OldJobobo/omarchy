@@ -173,6 +173,7 @@ for declaration in omitted invalid empty radius-only translucent opaque blurred;
     grep -qx 'blur = false' "$next_theme/alacritty.toml" || fail "declared Alacritty blur stays off"
     grep -qx 'blur=no' "$next_theme/foot.ini" || fail "declared Foot blur stays off"
     grep -qx 'background-blur = false' "$next_theme/ghostty.conf" || fail "declared Ghostty blur stays off"
+    grep -qx "gtk-custom-css = $ROOT/default/gtk/no-blur.css" "$next_theme/ghostty.conf" || fail "declared Ghostty blur off overrides Glassy's GTK blur"
     grep -qx 'background_blur 0' "$next_theme/kitty.conf" || fail "declared Kitty blur stays off"
   elif [[ $declaration == "blurred" ]]; then
     grep -qx 'blur = true' "$next_theme/alacritty.toml" || fail "declared Alacritty blur stays on"
@@ -186,6 +187,9 @@ for declaration in omitted invalid empty radius-only translucent opaque blurred;
     ! grep -q '^background_blur ' "$next_theme/kitty.conf" || fail "$declaration Kitty emits no blur override"
   fi
   (( $(grep -c '^blur=' "$next_theme/foot.ini") == 1 )) || fail "$declaration Foot has one blur setting under Glassy"
+  if [[ $declaration != "translucent" && $declaration != "opaque" ]]; then
+    grep -qx "gtk-custom-css = $ROOT/default/gtk/glass.css" "$next_theme/ghostty.conf" || fail "$declaration Ghostty preserves Glassy's default CSS blur"
+  fi
   python3 - "$next_theme/alacritty.toml" <<'PY'
 import sys
 import tomllib
@@ -209,6 +213,7 @@ PY
   HOME="$home" XDG_STATE_HOME="$home/.local/state" OMARCHY_PATH="$ROOT" \
     "$ROOT/bin/omarchy-theme-set-glass" "$next_theme"
   assert_opacity "$expected_opacity" "$declaration repeated"
+  (( $(grep -c '^gtk-custom-css =' "$next_theme/ghostty.conf") == 1 )) || fail "$declaration Ghostty gets one managed CSS entry"
   rm "$toggles/window-glassy.lua"
   HOME="$home" XDG_STATE_HOME="$home/.local/state" OMARCHY_PATH="$ROOT" \
     "$ROOT/bin/omarchy-theme-set-glass" "$next_theme"
