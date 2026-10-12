@@ -67,7 +67,8 @@ render
 grep -qx 'opacity = 1.0' "$next_theme/alacritty.toml" || fail "terminal opacity defaults to opaque"
 grep -qx 'blur = false' "$next_theme/alacritty.toml" || fail "Alacritty blur defaults off"
 grep -qx 'blur=no' "$next_theme/foot.ini" || fail "Foot blur defaults off"
-grep -qx 'background-blur = false' "$next_theme/ghostty.conf" || fail "Ghostty blur defaults off"
+! grep -q '^background-opacity' "$next_theme/ghostty.conf" || fail "Ghostty leaves an undeclared opacity to the user's config"
+! grep -q '^background-blur' "$next_theme/ghostty.conf" || fail "Ghostty leaves an undeclared blur to the user's config"
 grep -qx 'background_blur 0' "$next_theme/kitty.conf" || fail "Kitty blur defaults off"
 pass "terminal appearance settings retain safe defaults"
 
@@ -75,8 +76,16 @@ blur_defaults="$test_tmp/blur-defaults.toml"
 printf 'terminal_blur = true\n' >"$blur_defaults"
 blur_values=$(PATH="$ROOT/bin:$PATH" "$ROOT/bin/omarchy-theme-color" --file "$blur_defaults" --all)
 grep -qx $'terminal_blur_radius\t20' <<<"$blur_values" || fail "enabled blur defaults to radius 20"
-grep -qx $'terminal_blur_ghostty\t20' <<<"$blur_values" || fail "Ghostty receives the default blur radius"
+grep -qx $'terminal_blur_ghostty\tbackground-blur = 20' <<<"$blur_values" || fail "Ghostty receives the default blur radius"
+grep -q $'^terminal_opacity_ghostty\t#' <<<"$blur_values" || fail "Ghostty leaves an undeclared opacity alone beside a declared blur"
 pass "enabled terminal blur defaults to radius 20"
+
+reset_theme
+sed -i 's/^terminal_opacity = .*/terminal_opacity = 1.0/; s/^terminal_blur = .*/terminal_blur = false/' "$next_theme/colors.toml"
+render
+grep -qx 'background-opacity = 1.0' "$next_theme/ghostty.conf" || fail "Ghostty applies a declared opaque background"
+grep -qx 'background-blur = false' "$next_theme/ghostty.conf" || fail "Ghostty applies a declared blur off"
+pass "Ghostty applies terminal settings the theme declares, even at their defaults"
 
 commented_colors="$test_tmp/commented-colors.toml"
 cat >"$commented_colors" <<'TOML'

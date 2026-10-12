@@ -178,9 +178,12 @@ parse_colors_file() {
 }
 
 resolve_terminal_settings() {
+  local declared_opacity="${THEME_COLORS[terminal_opacity]+set}"
+  local declared_blur="${THEME_COLORS[terminal_blur]+set}"
   local blur="${THEME_COLORS[terminal_blur]:-false}"
   local opacity="${THEME_COLORS[terminal_opacity]:-1.0}"
   local radius="${THEME_COLORS[terminal_blur_radius]:-20}"
+  local ghostty_blur
 
   # These settings are scalar, so anything after the value is a TOML comment.
   opacity="${opacity%%#*}"
@@ -193,11 +196,13 @@ resolve_terminal_settings() {
   if [[ ! $opacity =~ ^(0([.][0-9]+)?|1([.]0+)?)$ ]]; then
     printf 'omarchy-theme-color: invalid terminal_opacity %q; using 1.0\n' "$opacity" >&2
     opacity="1.0"
+    declared_opacity=""
   fi
 
   if [[ $blur != "true" && $blur != "false" ]]; then
     printf 'omarchy-theme-color: invalid terminal_blur %q; using false\n' "$blur" >&2
     blur="false"
+    declared_blur=""
   fi
 
   if [[ ! $radius =~ ^[0-9]{1,2}$ ]] || (( 10#$radius > 64 )); then
@@ -213,11 +218,25 @@ resolve_terminal_settings() {
   if [[ $blur == "true" ]]; then
     THEME_COLORS[terminal_blur_radius]="$radius"
     THEME_COLORS[terminal_blur_foot]="yes"
-    THEME_COLORS[terminal_blur_ghostty]="$radius"
+    ghostty_blur="$radius"
   else
     THEME_COLORS[terminal_blur_radius]="0"
     THEME_COLORS[terminal_blur_foot]="no"
-    THEME_COLORS[terminal_blur_ghostty]="false"
+    ghostty_blur="false"
+  fi
+
+  # Ghostty reads the theme file after ~/.config/ghostty/config, so a default
+  # here would override the user's own setting. Emit only what the theme sets.
+  if [[ $declared_opacity ]]; then
+    THEME_COLORS[terminal_opacity_ghostty]="background-opacity = $opacity"
+  else
+    THEME_COLORS[terminal_opacity_ghostty]="# background-opacity is not set by this theme"
+  fi
+
+  if [[ $declared_blur ]]; then
+    THEME_COLORS[terminal_blur_ghostty]="background-blur = $ghostty_blur"
+  else
+    THEME_COLORS[terminal_blur_ghostty]="# background-blur is not set by this theme"
   fi
 }
 

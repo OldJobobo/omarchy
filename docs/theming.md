@@ -95,7 +95,7 @@ red = "#f7768e"
 blue = "#7aa2f7"
 ```
 
-`terminal_opacity` accepts a decimal from `0.0` (transparent) through `1.0` (opaque) and defaults to `1.0`. `terminal_blur` accepts `true` or `false` and defaults to `false`. When blur is enabled, `terminal_blur_radius` accepts an integer from `0` through `64` and defaults to `20`. Omarchy maps these shared values to Alacritty, Foot, Ghostty, and Kitty; terminals that only expose a blur toggle ignore the radius.
+`terminal_opacity` accepts a decimal from `0.0` (transparent) through `1.0` (opaque) and defaults to `1.0`. `terminal_blur` accepts `true` or `false` and defaults to `false`. When blur is enabled, `terminal_blur_radius` accepts an integer from `0` through `64` and defaults to `20`. Omarchy maps these shared values to Alacritty, Foot, Ghostty, and Kitty; terminals that only expose a blur toggle ignore the radius. Ghostty reads the theme file after `~/.config/ghostty/config`, so its generated config carries only the settings a theme declares, and the user's own opacity and blur stand otherwise.
 
 Any key can be referenced from a template with `{{ key }}`. The foundational
 shell palette is loaded from:

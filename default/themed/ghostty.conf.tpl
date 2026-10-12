@@ -1,6 +1,6 @@
 background = {{ background }}
-background-opacity = {{ terminal_opacity }}
-background-blur = {{ terminal_blur_ghostty }}
+{{ terminal_opacity_ghostty }}
+{{ terminal_blur_ghostty }}
 foreground = {{ foreground }}
 cursor-color = {{ bright_foreground }}
 selection-background = {{ selection_background }}
