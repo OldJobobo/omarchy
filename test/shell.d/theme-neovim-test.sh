@@ -118,6 +118,7 @@ grep -Fq 'colorscheme = "aether"' "$lua_file" || fail "generated Lua fixes the c
 grep -Fq 'transparent = true' "$lua_file" || fail "Neovim boolean options are rendered"
 grep -Fq 'sidebars = "transparent"' "$lua_file" || fail "Neovim style variants are rendered"
 grep -Fq 'bright_magenta = "#c1d7e3"' "$lua_file" || fail "Neovim palette overrides are rendered"
+grep -Eq '^[[:space:]]+magenta = "#9bb0c2",$' "$lua_file" || fail "a purple override also moves its magenta alias"
 grep -Fq 'highlight["Keyword"] = { fg = colors["bright_magenta"], bold = true, italic = true }' "$lua_file" || fail "Neovim visual highlights are rendered"
 grep -Fq 'highlight["Visual"] = { bg = "NONE", blend = 20 }' "$lua_file" || fail "Neovim transparent highlight backgrounds are rendered"
 grep -Fq 'highlight["@keyword.function"] = "Function"' "$lua_file" || fail "Neovim highlight links are rendered"
