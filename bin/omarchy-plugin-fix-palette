@@ -44,22 +44,62 @@ def source(file):
   masked = opaque.sub(lambda item: re.sub(r"[^\r\n]", " ", item[0]), text)
   return text, masked, literals
 
-def ambiguous_syntax(masked, literals):
+def regex_end(text, start):
+  escaped = in_class = False
+  for end in range(start + 1, len(text)):
+    char = text[end]
+    if char in "\r\n":
+      return None
+    if escaped:
+      escaped = False
+    elif char == "\\":
+      escaped = True
+    elif char == "[":
+      in_class = True
+    elif char == "]":
+      in_class = False
+    elif char == "/" and not in_class:
+      return re.match(r"[\w$]*", text[end + 1:]).end() + end + 1
+  return None
+
+def ambiguous_syntax(text, masked, literals):
   if any(item[0].startswith('`') and '${' in item[0] for item in literals):
     return True
   # Without a full JS parser, regex-like slashes and control-statement/ASI
   # contexts are ambiguous. Keep such files untouched rather than alter data.
   tokens = list(re.finditer(r"[A-Za-z_$][\w$]*|[^\s]", masked))
-  keywords = {"return", "throw", "case", "delete", "void", "typeof", "new", "in", "instanceof", "of", "yield", "await", "else", "do", "break", "continue", "debugger"}
+  keywords = {"return", "throw", "case", "delete", "void", "typeof", "new", "in", "instanceof", "of", "yield", "await", "else", "do", "break", "continue", "debugger", "extends"}
   controls = {"if", "while", "for", "switch", "catch", "with"}
+  # Only after these can a slash start nothing but a regex. Reserved words
+  # only: await and yield can also name a variable.
+  regex_before = set("(,=:[!&|?{;") | {"return", "typeof", "case", "delete", "void", "throw", "else", "do"}
   parens = []
   value_end = False
+  skip_to = 0
   for i, token in enumerate(tokens):
+    if token.start() < skip_to:
+      continue
     value = token[0]
-    if value in ('\\', '"', "'", '`'):
+    if value in ('\\', '"', "'", '`', '#'):
       return True
-    if value == "/" and (not value_end or (i and re.search(r"[\r\n]", masked[tokens[i - 1].end():token.start()]))):
+    if value == "/" and i and re.search(r"[\r\n]", masked[tokens[i - 1].end():token.start()]):
       return True
+    # A regex literal that masking left whole and that never names Color can
+    # change neither the masking nor the rewrite, so step over it.
+    if value == "/" and not value_end:
+      before = tokens[i - 1] if i else None
+      end = regex_end(text, token.start())
+      if before is None or before[0] not in regex_before or masked[before.end():token.start()] != text[before.end():token.start()]:
+        return True
+      # obj.return is a property, not the keyword. Code outside ASCII can hide
+      # a name (πreturn) or a line break (U+2028) from these tokens.
+      if not masked.isascii() or (before[0].isalpha() and i > 1 and tokens[i - 2][0] == "."):
+        return True
+      if end is None or masked[token.start():end] != text[token.start():end] or "Color" in text[token.start():end]:
+        return True
+      skip_to = end
+      value_end = True
+      continue
     if value == "(":
       parens.append(i == 0 or tokens[i - 1][0] not in controls)
     if value == ")":
@@ -71,8 +111,14 @@ def ambiguous_syntax(masked, literals):
 action = sys.argv[1]
 if action == "importers":
   script = Path(sys.argv[2]).resolve()
+  loaders = []
   for file in sys.argv[3:]:
-    text, masked, _ = source(file)
+    # A loader we cannot read may load the script too, so name none at all.
+    try:
+      text, masked, _ = source(file)
+    except OSError:
+      print(f"omarchy-plugin-fix-palette: skipped {sys.argv[2]}: could not read {file}", file=sys.stderr)
+      raise SystemExit(1)
     offset = 0
     for line in masked.splitlines(keepends=True):
       active = line.strip()
@@ -86,16 +132,21 @@ if action == "importers":
         except ValueError:
           relative = ""
         if relative and (Path(file).parent / relative).resolve() == script:
-          print(file)
+          loaders.append(file)
           break
       offset += len(line)
+  for file in loaders:
+    print(file)
   raise SystemExit(0)
 
 file = sys.argv[2]
 text, masked, literals = source(file)
-unsafe = ambiguous_syntax(masked, literals)
+unsafe = ambiguous_syntax(text, masked, literals)
 if action == "code":
-  # A plain-name sentinel makes the existing ambiguity guard report a skip.
+  # A plain-name sentinel makes the existing ambiguity guard report a skip, but
+  # only where Color may appear at all: a file with neither the word nor a \u
+  # escape (\u0043olor) cannot name it.
+  unsafe = unsafe and ("Color" in text or "\\u" in text)
   sys.stdout.buffer.write((masked + ("\nColor\n" if unsafe else "")).encode("utf-8", errors="surrogateescape"))
 else:
   if unsafe:
@@ -104,6 +155,8 @@ else:
   member = re.compile(boundary + r"(?P<name>Color)(?=\.[A-Za-z_$])", re.MULTILINE)
   target = re.compile(boundary + r"target\s*:\s*(?P<name>Color)(?=\s*(?:;|}|$))", re.MULTILINE)
   spans = {match.span("name") for pattern in (member, target) for match in pattern.finditer(masked)}
+  # o. Color is a member of o, whatever the space after the dot.
+  spans = {(start, end) for start, end in spans if not re.search(r"(?<!\.\.)\.\s+$", masked[:start])}
   for start, end in sorted(spans, reverse=True):
     text = text[:start] + "Commons.Color" + text[end:]
   Path(file).write_bytes(text.encode("utf-8", errors="surrogateescape"))

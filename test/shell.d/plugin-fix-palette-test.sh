@@ -266,6 +266,14 @@ expect_file "$plugin/Widget.qml" $'import qs.Commons as Commons\nimport qs.Commo
   "a target with a space before its colon is qualified"
 pass "a target with a space before its colon is qualified"
 
+plugin="$TMPDIR/spaced-member"
+write_manifest "$plugin" acme.spacedmember
+printf 'import qs.Commons\nItem {\n  color: Color.accent\n  function f(o) { return /x/.test("x") && o. Color.accent && o.\n    Color.accent && [...Color.list] }\n}\n' >"$plugin/Widget.qml"
+fix "$plugin" >/dev/null
+expect_file "$plugin/Widget.qml" $'import qs.Commons as Commons\nimport qs.Commons\nItem {\n  color: Commons.Color.accent\n  function f(o) { return /x/.test("x") && o. Color.accent && o.\n    Color.accent && [...Commons.Color.list] }\n}' \
+  "a member Color after a dot and whitespace is not the palette"
+pass "o. Color is left as the member it is, wherever the dot sits"
+
 # --- Literal preservation and exact helper paths -----------------------------
 
 plugin="$TMPDIR/literals"
@@ -331,7 +339,17 @@ JS
 )" "JavaScript data and comments are not palette references"
 pass "inherited JavaScript preserves strings and comments while qualifying actual palette access"
 
-for source in 'Item { property color accent: Color.accent; property string label: `${Color.accent}` }' 'Item { property color accent: Color.accent; function match(s) { return /Use Color.accent/.test(s) } }'; do
+for source in 'Item { property color accent: Color.accent; property string label: `${Color.accent}` }' 'Item { property color accent: Color.accent; function match(s) { return /Use Color.accent/.test(s) } }' \
+  'Item { property color accent: Color.accent; function f(a, s) { return 1. / a / /^Color.accent/.test(s) } }' \
+  'Item { property color accent: Color.accent; function f(o, a, s) { return o.return / a / /^Color.accent/.test(s) } }' \
+  'Item { property color accent: Color.accent; function f(await, a, s) { return await / a / /^Color.accent/.test(s) } }' \
+  'Item { property color accent: Color.accent; function f(πreturn, a, s) { return πreturn / a / /^Color.accent/.test(s) } }' \
+  'Item { property color accent: Color.accent; function f(áreturn, a, s) { return áreturn / a / /^Color.accent/.test(s) } }' \
+  'Item { function f() { class C extends /[; /a/]Color.x/.constructor {} } }' \
+  'Item { property color accent: \u0043olor.accent }' \
+  'Item { property string label: `${\u0043olor.accent}` }' \
+  'Item { property string label: `${Colo\u0072}suffix` }' \
+  'Item { property string label: `${JSON.stringify({...Color.bar})}` }'; do
   plugin="$TMPDIR/ambiguous-literals"
   rm -rf "$plugin"
   write_manifest "$plugin" acme.ambiguousliterals
@@ -342,6 +360,69 @@ for source in 'Item { property color accent: Color.accent; property string label
   grep -qF "skipped" <<<"$output" || fail "ambiguous expressions report a skip" "$output"
 done
 pass "interpolated templates and regex-like syntax are skipped rather than changing literal data"
+
+plugin="$TMPDIR/regex-literals"
+write_manifest "$plugin" acme.regexliterals
+cat >"$plugin/Widget.qml" <<'QML'
+import qs.Commons
+Item {
+  property color accent: Color.accent
+  function words(s) { return s.split(/\s+/) }
+  function valid(v) { if (!/^#[0-9A-Fa-f]{6}$/.test(v)) return; return v.match(/(https:\/\/\S+)/i) }
+  function half(n) { return n / 2 / Color.scale }
+}
+QML
+output=$(fix "$plugin" 2>&1 >/dev/null)
+expect_file "$plugin/Widget.qml" "$(cat <<'QML'
+import qs.Commons as Commons
+import qs.Commons
+Item {
+  property color accent: Commons.Color.accent
+  function words(s) { return s.split(/\s+/) }
+  function valid(v) { if (!/^#[0-9A-Fa-f]{6}$/.test(v)) return; return v.match(/(https:\/\/\S+)/i) }
+  function half(n) { return n / 2 / Commons.Color.scale }
+}
+QML
+)" "a file whose regexes hold no quote, comment or Color is still qualified"
+[[ -z $output ]] || fail "plain regexes report no skip" "$output"
+pass "ordinary regex literals, as in the bar, no longer block the rewrite"
+
+plugin="$TMPDIR/quoted-regex"
+write_manifest "$plugin" acme.quotedregex
+printf 'import qs.Commons\nItem {\n  property color accent: Color.accent\n  function quote(s) { return s.replace(/[\\\\"]/g, "x") }\n}\n' >"$plugin/Widget.qml"
+before=$(sha256sum <"$plugin/Widget.qml")
+output=$(fix "$plugin" 2>&1)
+[[ $(sha256sum <"$plugin/Widget.qml") == "$before" ]] || fail "a regex holding a quote leaves the file unchanged"
+grep -qF "skipped" <<<"$output" || fail "a regex holding a quote reports a skip" "$output"
+pass "a regex that would mislead the string masking still skips the file"
+
+plugin="$TMPDIR/quiet-helper"
+write_manifest "$plugin" acme.quiethelper
+printf 'import qs.Commons\nimport "Model.js" as Model\nItem { color: Color.accent }\n' >"$plugin/Widget.qml"
+printf 'function quote(s) { return s.replace(/"/g, "") }\n' >"$plugin/Model.js"
+output=$(fix "$plugin" 2>&1 >/dev/null)
+[[ -z $output ]] || fail "a helper that never names Color is not reported" "$output"
+pass "a file that never names Color is never reported, however unclear its syntax"
+
+plugin="$TMPDIR/unreadable-loader"
+write_manifest "$plugin" acme.unreadableloader
+printf 'import qs.Commons\nimport "Model.js" as Model\nItem {}\n' >"$plugin/A.qml"
+printf 'import qs.Commons\nimport "Model.js" as Model\nItem {}\n' >"$plugin/B.qml"
+printf 'import qs.Commons\nimport "Model.js" as Model\nItem {}\n' >"$plugin/C.qml"
+printf 'function accent() { return Color.accent }\n' >"$plugin/Model.js"
+chmod 000 "$plugin/B.qml"
+fix "$plugin" >/dev/null 2>&1 || fail "an unreadable loader never fails the command"
+expect_file "$plugin/Model.js" 'function accent() { return Color.accent }' "a helper with an unreadable loader is left alone"
+grep -qF 'import qs.Commons as Commons' "$plugin/C.qml" && fail "no loader is given the alias for a helper that stays unqualified"
+pass "a helper is rewritten only when every loader could be read"
+
+plugin="$TMPDIR/hashbang"
+write_manifest "$plugin" acme.hashbang
+printf 'import qs.Commons\nimport "Helpers.js" as Helpers\nItem {}\n' >"$plugin/Widget.qml"
+printf '#!/x/ Color.accent\nfunction color() { return Color.accent }\n' >"$plugin/Helpers.js"
+fix "$plugin" >/dev/null 2>&1
+expect_file "$plugin/Helpers.js" $'#!/x/ Color.accent\nfunction color() { return Color.accent }' "a hashbang line is never read as a regex"
+pass "a script with a hashbang or private names is left alone"
 
 plugin="$TMPDIR/same-named-helpers"
 write_manifest "$plugin" acme.samehelpers
