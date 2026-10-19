@@ -5,6 +5,8 @@ set -euo pipefail
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
 require_command jq
+require_command python3
+python_bin=$(python3 -c 'import sys; print(sys.executable)')
 
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
@@ -32,6 +34,9 @@ case "$1" in
 esac
 SH
 chmod +x "$stub_bin/hyprctl"
+# Resolve tool-manager shims before replacing HOME/XDG paths for the fixture.
+printf '#!/bin/bash\nexec %q "$@"\n' "$python_bin" >"$stub_bin/python3"
+chmod +x "$stub_bin/python3"
 
 write_fixture() {
   cat >"$monitor_lua" <<'LUA'
@@ -67,6 +72,7 @@ run_scaling() {
   HOME="$home_dir" \
     XDG_CONFIG_HOME="$home_dir/.config" \
     XDG_STATE_HOME="$home_dir/.local/state" \
+    OMARCHY_PATH="$ROOT" \
     PATH="$stub_bin:$PATH" \
     OMARCHY_TEST_MONITORS_JSON="$monitor_json" \
     OMARCHY_TEST_EVAL_OUT="$eval_out" \
@@ -106,6 +112,19 @@ for field in 'position = "-1080x640"' 'transform = 3' 'mode = "2560x1440@143.967
   grep -F "$field" "$eval_out" >/dev/null || fail "runtime scaling preserves $field"
 done
 pass "runtime scaling preserves negative position, rotation and refresh rate"
+
+write_fixture
+monitor_json='[{"name":"DP-1","focused":true,"scale":1,"width":2560,"height":1440,"refreshRate":144,"x":0,"y":0,"transform":0},{"name":"DP-2","focused":false,"scale":1,"width":1920,"height":1080,"refreshRate":60,"x":640,"y":-1080,"transform":0},{"name":"DP-3","focused":false,"scale":1,"width":2560,"height":1440,"refreshRate":144,"x":2560,"y":-1120,"transform":1}]'
+before=$(sha256sum "$monitor_lua")
+managed_before=$(sha256sum "$managed_lua")
+run_scaling up
+grep -F 'output = "DP-2"' "$eval_out" | grep -F 'position = "128x-1080"' >/dev/null ||
+  fail "scaling moves the top display with the shared right edge"
+grep -F 'output = "DP-3"' "$eval_out" | grep -F 'position = "2048x-1408"' >/dev/null ||
+  fail "scaling closes the DP-1 to DP-3 pointer gap"
+[[ $(sha256sum "$monitor_lua") == "$before" && $(sha256sum "$managed_lua") == "$managed_before" ]] ||
+  fail "connected runtime scaling leaves both configs untouched"
+pass "scaling moves connected neighbours in the same runtime request without config writes"
 
 # File presence is deliberately conservative: no arbitrary Lua imports are
 # parsed or executed to decide whether another tool's file is currently loaded.

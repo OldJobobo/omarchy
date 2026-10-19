@@ -20,7 +20,7 @@ Changes to `GDK_SCALE` apply to applications started after the change (and GTK o
 
 You can also quickly step through the major monitor scaling ratios (1x, 1.25x, 1.6x, 2x, 3x, 4x) using `Super + /` to go higher and `Super + Alt + /` to go lower. If you have the default configuration, these changes will also persist past reboot.
 
-When a nonempty `~/.config/hypr/hyprmoncfg-monitors.lua` is present, Omarchy applies scale changes only for the current session and leaves both monitor configuration files untouched. Reloading Hyprland or applying a profile can restore the saved scale; use hyprmoncfg to save a permanent change. This conservative guard also applies to a leftover generated file that is no longer loaded; remove that unused file to restore default scale persistence.
+When a nonempty `~/.config/hypr/hyprmoncfg-monitors.lua` is present, Omarchy applies scale changes only for the current session and leaves both monitor configuration files untouched. Connected neighbouring displays move with the resized logical edges so the pointer can still cross between them; their own scales, rotations and refresh rates do not change. A layout that cannot keep its shared edges without overlap is left unchanged and must be arranged in the monitor manager. Reloading Hyprland or applying a profile can restore the saved scale and positions; use hyprmoncfg to save a permanent change. This conservative guard also applies to a leftover generated file that is no longer loaded; remove that unused file to restore default scale persistence.
 
 ### Making text bigger or smaller
 
