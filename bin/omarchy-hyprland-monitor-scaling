@@ -113,20 +113,50 @@ persisting_governs_monitor() {
 set_scale() {
   local requested_scale="$1"
   local requested="${2:-$requested_scale}"
-  local monitor_info="$(hyprctl monitors -j | jq -e -c '.[] | select(.focused == true)')"
-  local active_monitor="$(echo "$monitor_info" | jq -r '.name')"
-  local current_scale="$(echo "$monitor_info" | jq -r '.scale')"
-  local width="$(echo "$monitor_info" | jq -r '.width')"
-  local height="$(echo "$monitor_info" | jq -r '.height')"
-  local refresh_rate="$(echo "$monitor_info" | jq -r '.refreshRate')"
-  local new_scale="$(clean_scale "$requested_scale" "$width" "$height")"
+  local monitor_info active_monitor current_scale width height refresh_rate pos_x pos_y transform
+  monitor_info=$(hyprctl monitors -j | jq -e -c '.[] | select(.focused == true)') || return 1
+  active_monitor=$(echo "$monitor_info" | jq -r '.name')
+  current_scale=$(echo "$monitor_info" | jq -r '.scale')
+  width=$(echo "$monitor_info" | jq -r '.width')
+  height=$(echo "$monitor_info" | jq -r '.height')
+  refresh_rate=$(echo "$monitor_info" | jq -r '.refreshRate')
+  pos_x=$(echo "$monitor_info" | jq -r '.x // 0')
+  pos_y=$(echo "$monitor_info" | jq -r '.y // 0')
+  transform=$(echo "$monitor_info" | jq -r '.transform // 0')
+
+  # These values enter an evaluated Lua table. Keep connector names and
+  # geometry literal, including the negative positions used by stacked layouts.
+  if [[ ! $active_monitor =~ ^[A-Za-z0-9._-]+$ ]] ||
+    [[ ! $width =~ ^[1-9][0-9]*$ || ! $height =~ ^[1-9][0-9]*$ ]] ||
+    [[ ! $refresh_rate =~ ^[0-9]+([.][0-9]+)?$ ]] ||
+    [[ ! $pos_x =~ ^-?[0-9]+$ || ! $pos_y =~ ^-?[0-9]+$ ]] ||
+    [[ ! $transform =~ ^[0-7]$ ]]; then
+    echo "Refusing to scale a monitor with an unsafe name or invalid geometry" >&2
+    return 1
+  fi
+
+  local new_scale new_gdk_scale
+  new_scale=$(clean_scale "$requested_scale" "$width" "$height")
   # GTK only honors integer GDK_SCALE values, so persist the nearest whole
   # factor even when the monitor scale itself is fractional.
-  local new_gdk_scale="$(awk -v scale="$new_scale" 'BEGIN { printf "%d", int(scale + 0.5) }')"
+  new_gdk_scale=$(awk -v scale="$new_scale" 'BEGIN { printf "%d", int(scale + 0.5) }')
   local monitor_lua="$HOME/.config/hypr/monitors.lua"
 
-  hyprctl eval "hl.monitor({ output = \"$active_monitor\", mode = \"${width}x${height}@${refresh_rate}\", position = \"auto\", scale = $new_scale })" >/dev/null
+  # Preserve the live layout when this change is runtime-only. In particular,
+  # position = "auto" can move a manually arranged display to another edge.
+  hyprctl eval "hl.monitor({ output = \"$active_monitor\", mode = \"${width}x${height}@${refresh_rate}\", position = \"${pos_x}x${pos_y}\", scale = $new_scale, transform = $transform })" >/dev/null || return 1
   audit_scale_change "$requested" "$active_monitor" "$current_scale" "$new_scale"
+
+  # hyprmoncfg loads its own rules after monitors.lua. Do not rewrite either
+  # file: writing the shared default triggers a reload that undoes this scale,
+  # and the generated file belongs to the manager. Presence is a conservative
+  # guard, not proof it is loaded; an unused nonempty file also means runtime-
+  # only scaling until it is removed. No daemon or Lua-source parsing is needed.
+  local managed_monitor_lua="${monitor_lua%/*}/hyprmoncfg-monitors.lua"
+  if [[ -f $managed_monitor_lua && -s $managed_monitor_lua ]]; then
+    echo "Not persisting scale: $managed_monitor_lua is present; save managed monitor settings in hyprmoncfg." >&2
+    return 0
+  fi
 
   # Hyprland reloads monitors.lua when it changes, and the reload re-applies
   # whichever rule governs this monitor. Persisting somewhere that rule does not
