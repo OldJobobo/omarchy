@@ -548,7 +548,7 @@ assertDeepEqual(
   defaultItems.filter(item => item.parent === 'appearance.windows.transparency').map(item => [item.label, item.action]),
   [
     ['Opaque Windows', 'omarchy-hyprland-window-transparency opaque'],
-    ['Theme Opacity', 'omarchy-hyprland-window-transparency transparent'],
+    ['Theme Windows', 'omarchy-hyprland-window-transparency transparent'],
     ['Glassy Windows', 'omarchy-hyprland-window-transparency glassy']
   ],
   'menu picks window transparency from Appearance > Windows > Window Opacity'
