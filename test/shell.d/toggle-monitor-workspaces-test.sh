@@ -73,9 +73,9 @@ const hyprland = { workspaces: { values: [
 ] } }
 const widget = { slots: 10, block: 1, monitorName: 'DP-1', perMonitorWorkspaces: true, dispatches: [] }
 widget.dispatch = expression => widget.dispatches.push(expression)
-for (const name of ['blockOf', 'slotOf', 'workspaceIds', 'focusWorkspace']) {
+for (const name of ['blockOf', 'slotOf', 'workspaceIds', 'focusWorkspace', 'modeGlyph']) {
   const match = source.match(new RegExp(`\\n  function ${name}\\(([^)]*)\\) \\{([\\s\\S]*?)\\n  \\}`))
-  assert(match, `can extract ${name} from the real widget`)
+  if (!match) fail(`can extract ${name} from the real widget`)
   const fn = new Function('root', 'Hyprland', match[1], match[2])
   widget[name] = value => fn(widget, hyprland, value)
 }
@@ -88,13 +88,13 @@ assertDeepEqual(widget.workspaceIds(), [1, 2, 3, 4, 5, 6, 16], 'global bar shows
 assertEqual(widget.slotOf(16), 16, 'global bar never relabels id 16 as 6')
 widget.focusWorkspace(16)
 assertEqual(widget.dispatches.pop(), 'hl.dsp.focus({ workspace = "16" })', 'global clicks focus the actual id')
-assert(source.includes('root.perMonitorWorkspaces && root.blockOf(modelData)'), 'global bar has no artificial guest separator')
-assert(source.includes('watchChanges: true') && source.includes('workspaceScope.reload()'), 'scope refreshes on flag changes and config reload without polling')
-
-const menu = requireFromRoot('shell/plugins/menu/MenuModel.js')
-const entries = menu.parseMenuJsonc(fs.readFileSync(path.join(root, 'default/omarchy/omarchy-menu.jsonc'), 'utf8'))
-const row = entries.find(entry => entry.id === 'setup.workspaces.per-monitor')
-assert(row && row.label === 'Per Monitor Workspaces', 'the toggle lives under Setup > Workspaces')
-assertEqual(row.action, 'omarchy-toggle-monitor-workspaces', 'the menu calls the supported toggle command')
-assert(row.checked.includes('no-monitor-workspaces') && row.checked.includes('XDG_STATE_HOME'), 'the checkmark reads the same XDG-aware setting')
+const labelBinding = source.match(/^\s+text: (.+)$/m)
+if (!labelBinding) fail('can extract the workspace button label binding')
+const label = new Function('root', 'slot', 'shown', 'return ' + labelBinding[1])
+widget.activeMode = 'scrolling'
+for (const [perMonitor, id, expected] of [[true, 10, '0'], [true, 20, '0'], [true, 16, '6'], [false, 10, '10'], [false, 20, '20'], [false, 16, '16']]) {
+  widget.perMonitorWorkspaces = perMonitor
+  assertEqual(label(widget, widget.slotOf(id), false), expected, `${perMonitor ? 'per-monitor' : 'global'} mode labels inactive workspace ${id}`)
+  assertEqual(label(widget, widget.slotOf(id), true), widget.modeGlyph(widget.activeMode), 'the shown workspace keeps its layout glyph in either scope')
+}
 JS

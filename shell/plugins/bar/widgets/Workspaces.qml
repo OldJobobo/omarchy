@@ -285,7 +285,7 @@ BarWidget {
         Layout.topMargin: firstGuest && root.vertical ? Style.space(6) : 0
 
         bar: root.bar
-        text: shown ? root.modeGlyph(root.activeMode) : (slot === root.slots ? "0" : String(slot))
+        text: shown ? root.modeGlyph(root.activeMode) : (root.perMonitorWorkspaces && slot === root.slots ? "0" : String(slot))
         opacity: occupied || shown ? 1 : 0.5
         horizontalMargin: 6
         verticalPadding: 6
