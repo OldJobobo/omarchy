@@ -67,6 +67,7 @@ cat >"$test_tmp/shell.qml" <<'QML'
 import QtQuick
 import Quickshell
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 ShellRoot {
@@ -78,7 +79,7 @@ ShellRoot {
   }
 
   function runChecks() {
-    Color.loadUserShell(`
+    Commons.Color.loadUserShell(`
 [menu]
 background = "#11223380 #445566 25deg"
 background-alpha = 0.5
@@ -87,20 +88,20 @@ selected-background-alpha = 0.35
 `)
 
     Qt.callLater(function() {
-      var background = Color.menu.backgroundSpec
-      var selected = Color.menu.selectedBackgroundSpec
+      var background = Commons.Color.menu.backgroundSpec
+      var selected = Commons.Color.menu.selectedBackgroundSpec
       if (!background.gradient.enabled || background.gradient.colors.length !== 2 || background.gradient.angle !== 25) {
         fail("menu background gradient spec was not resolved")
         return
       }
       if (Math.abs(background.gradient.colors[0].a - 0.25) > 0.01
-          || Math.abs(Color.menu.background.a - background.gradient.colors[0].a) > 0.01) {
+          || Math.abs(Commons.Color.menu.background.a - background.gradient.colors[0].a) > 0.01) {
         fail("menu background and color-only fallback did not share multiplied alpha")
         return
       }
       if (!selected.gradient.enabled || selected.gradient.colors.length !== 2
           || Math.abs(selected.gradient.colors[0].a - 128 / 255 * 0.35) > 0.01
-          || Math.abs(Color.menu.selectedBackground.a - selected.gradient.colors[0].a) > 0.01) {
+          || Math.abs(Commons.Color.menu.selectedBackground.a - selected.gradient.colors[0].a) > 0.01) {
         fail("selected background gradient and fallback were not resolved consistently")
         return
       }
@@ -113,7 +114,7 @@ selected-background-alpha = 0.35
         return
       }
 
-      Color.loadUserShell(`
+      Commons.Color.loadUserShell(`
 [menu]
 background = "#11223380"
 background-alpha = 0.5
@@ -130,16 +131,16 @@ selected-background-alpha = 0.35
           return
         }
 
-        Color.loadUserShell(`
+        Commons.Color.loadUserShell(`
 [menu]
 background = "fill.alias"
 [fill]
 alias = "menu.background"
 `)
         Qt.callLater(function() {
-          if (Math.abs(Color.menu.background.r - Color.background.r) > 0.01
-              || Math.abs(Color.menu.background.g - Color.background.g) > 0.01
-              || Math.abs(Color.menu.background.b - Color.background.b) > 0.01) {
+          if (Math.abs(Commons.Color.menu.background.r - Commons.Color.background.r) > 0.01
+              || Math.abs(Commons.Color.menu.background.g - Commons.Color.background.g) > 0.01
+              || Math.abs(Commons.Color.menu.background.b - Commons.Color.background.b) > 0.01) {
             fail("cyclic fill references did not fall back safely")
             return
           }
@@ -161,8 +162,8 @@ alias = "menu.background"
     width: 160
     height: 100
     radius: 12
-    fillColor: Color.menu.background
-    fillSpec: Color.menu.backgroundSpec
+    fillColor: Commons.Color.menu.background
+    fillSpec: Commons.Color.menu.backgroundSpec
     borderSpec: Border.flat("white", 1)
   }
 
@@ -171,8 +172,8 @@ alias = "menu.background"
     width: 120
     height: 40
     radius: 8
-    fillColor: Color.menu.selectedBackground
-    fillSpec: Color.menu.selectedBackgroundSpec
+    fillColor: Commons.Color.menu.selectedBackground
+    fillSpec: Commons.Color.menu.selectedBackgroundSpec
   }
 }
 QML
