@@ -101,4 +101,9 @@ invalid|"invalid"|0.65
 declared|0.8|0.8
 opaque|1.0|1.0
 commented|0.8 # translucent|0.8
+quoted-junk|"0.8 garbage"|0.65
+quoted-hash|"0.8 # not a comment"|0.65
+unquoted-junk|0.8 garbage|0.65
+quoted-comment|'0.8' # translucent|0.8
+comment-quotes|0.8 # "translucent"|0.8
 CASES

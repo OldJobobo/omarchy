@@ -143,6 +143,15 @@ parse_colors_file() {
     key="${key//[\"\' ]/}"                # strip quotes and spaces from key
     [[ $key && $key != \#* ]] || continue # skip empty lines and comments
 
+    # Only unquoted opacity declarations can contain a TOML comment. Keep
+    # quoted contents intact so invalid suffixes cannot become valid numbers.
+    if [[ $key == "terminal_opacity" ]]; then
+      value="${value#"${value%%[![:space:]]*}"}"
+      if [[ $value != [\"\']* ]]; then
+        value="${value%%#*}"
+      fi
+    fi
+
     if [[ $value == *[\"\']* ]]; then
       value="${value#*[\"\']}"
       value="${value%%[\"\']*}" # extract value between quotes (ignores inline comments)
@@ -177,9 +186,6 @@ resolve_terminal_opacity() {
   local declared="${THEME_COLORS[terminal_opacity]+set}"
   local opacity="${THEME_COLORS[terminal_opacity]-1.0}" terminal
 
-  # This setting is scalar; an unquoted value can carry a TOML comment.
-  opacity="${opacity%%#*}"
-  opacity="${opacity%% *}"
   if [[ ! $opacity =~ ^(0([.][0-9]+)?|1([.]0+)?)$ ]]; then
     printf 'omarchy-theme-color: invalid terminal_opacity %q; ignoring override\n' "$opacity" >&2
     opacity="1.0"
