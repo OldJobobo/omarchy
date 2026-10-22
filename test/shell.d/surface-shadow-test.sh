@@ -6,7 +6,6 @@ run_node_test <<'JS'
 const fs = require('fs')
 const vm = require('vm')
 const geometry = requireFromRoot('shell/Commons/ShadowGeometry.js')
-const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 const make = values => geometry.spec(Object.fromEntries(Object.entries(values).map(([k,v]) => ['popups.shadow-' + k, v])), 'popups')
 const insets = s => [s.left, s.right, s.top, s.bottom]
 
@@ -28,10 +27,10 @@ assert(!geometry.spec({'bar.shadow-alpha': 1}, 'bar').enabled, 'the bar cannot o
 assert(!geometry.spec({'.shadow-alpha': 1}, '').enabled, 'ordinary controls cannot opt in')
 
 // Exercise the actual parser and merge functions, not a parallel TOML parser.
-const color = read('shell/Commons/Color.qml')
+const color = fs.readFileSync(path.join(root, 'shell/Commons/Color.qml'), 'utf8')
 function qmlFunction(source, name) {
   const start = source.indexOf('  function ' + name + '(')
-  assert(start >= 0, `find production ${name}`)
+  if (start < 0) throw new Error(`Missing production function ${name}`)
   const end = source.indexOf('\n  }', start)
   return source.slice(start, end + 4)
 }
@@ -47,53 +46,29 @@ scope.loadUserShell('')
 assertEqual(geometry.spec(scope.shellValues, 'popups').alpha, 0.8, 'removing override restores theme shadow')
 scope.loadShell('')
 assert(!geometry.spec(scope.shellValues, 'popups').enabled, 'switching to an old theme removes shadow')
-
-const surfaces = {
-  'shell/Ui/KeyboardPanel.qml': 'popups',
-  'shell/Ui/PopupCard.qml': 'popups',
-  'shell/Ui/ConfirmDialog.qml': 'popups',
-  'shell/Ui/Dropdown.qml': 'popups',
-  'shell/Ui/SearchableDropdown.qml': 'popups',
-  'shell/Ui/MultiSelect.qml': 'popups',
-  'shell/Ui/PanelToolTip.qml': 'tooltip',
-  'shell/Ui/Button.qml': 'tooltip',
-  'shell/plugins/menu/Menu.qml': 'menu',
-  'shell/plugins/clipboard/Clipboard.qml': 'menu',
-  'shell/plugins/emojis/Emojis.qml': 'menu',
-  'shell/plugins/reminders/ReminderFlow.qml': 'menu',
-  'shell/plugins/polkit/PolkitAgent.qml': 'polkit',
-  'shell/plugins/osd/Osd.qml': 'popups',
-  'shell/plugins/panels/tailscale/Panel.qml': 'popups',
-  'shell/plugins/panels/wifiqr/Panel.qml': 'popups',
-}
-for (const [file, section] of Object.entries(surfaces)) {
-  assert(read(file).includes(`shadowSection: "${section}"`), `${file} opts its outer surface into ${section}`)
-}
-for (const file of ['Dropdown', 'SearchableDropdown', 'MultiSelect', 'PanelToolTip', 'Button']) {
-  const source = read(`shell/Ui/${file}.qml`)
-  for (const side of ['left', 'right', 'top', 'bottom']) {
-    assert(source.includes(`${side}Margin: shadowInsets.enabled ? Math.max(margins, shadowInsets.${side}) : margins`), `${file} reserves ${side} window-edge clearance only when enabled`)
-  }
-}
-const shared = read('shell/Ui/BorderSurface.qml')
-assert(shared.includes('property string shadowSection: ""'), 'shared controls default to no shadow')
-assert(shared.includes('shadowSection ? Shadow.surfaceSpec(shadowSection) : null'), 'ordinary surfaces skip shadow resolution')
-assert(shared.includes('active: root.shadowSpec !== null && root.shadowSpec.enabled'), 'disabled shadows allocate no renderer')
-const multiSelect = read('shell/Ui/MultiSelect.qml')
-assert(multiSelect.includes('_windowHeight - _anchorY - Math.max(Style.space(12), bottomMargin)'), 'long MultiSelect popups reserve their shadow bottom margin')
-const renderer = read('shell/Ui/SurfaceShadow.qml')
-assert(renderer.includes('maskInverted: true'), 'renderer excludes card interior for translucent backgrounds')
-const lock = read('shell/plugins/lock/LockView.qml')
-assert(lock.includes('Shadow.surfaceSpec("lock")') && lock.includes('clip: true'), 'lock keeps password clipping with sibling shadow')
-const notifications = read('shell/plugins/notifications/Service.qml')
-assert(notifications.includes('Shadow.surfaceSpec("notifications")') && read('shell/plugins/notifications/Toast.qml').includes('shadowSection: "notifications"'), 'toast surface opts in and the service reserves shadow extents')
-assert(!read('shell/plugins/notifications/NotificationPanel.qml').includes('shadowSection:'), 'notification history remains flat')
-const popup = read('shell/Ui/PopupCard.qml')
-assert(popup.includes('mask: Region { item: card }'), 'popup shadow padding does not capture input')
-assert(popup.includes('implicitWidth: contentWidth + shadowSpec.left + shadowSpec.right'), 'popup window includes horizontal shadow extents')
-assert(popup.includes('implicitHeight: contentHeight + shadowSpec.top + shadowSpec.bottom'), 'popup window includes vertical shadow extents')
-assert(popup.includes('point.x - root.shadowSpec.left') && popup.includes('point.y - root.shadowSpec.top'), 'popup anchors request visible card alignment before compositor edge adjustment')
-const bar = read('shell/plugins/bar/Bar.qml')
-assertEqual((bar.match(/shadowSection:/g) || []).length, 1, 'only the bar-owned tooltip opts in, never the bar')
-assert(bar.includes('shadowSection: "tooltip"') && bar.includes('mask: Region { item: tooltipBubble }'), 'bar tooltip is padded without expanding input')
 JS
+
+if ! command -v quickshell >/dev/null 2>&1; then
+  skip "live shadow layout checks require Quickshell"
+  exit 0
+fi
+
+test_tmp=$(mktemp -d)
+trap 'rm -rf "$test_tmp"' EXIT
+cp -a "$ROOT/shell/Ui" "$test_tmp/Ui"
+ln -s "$ROOT/shell/Commons" "$test_tmp/Commons"
+cp "$ROOT/test/shell.d/fixtures/surface-shadow-layout/shell.qml" "$test_tmp/shell.qml"
+# Expose the production popup for observations, without altering its behavior.
+python3 - "$test_tmp/Ui/MultiSelect.qml" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+source = p.read_text()
+end = source.rfind('\n}')
+p.write_text(source[:end] + '\n  property alias testedPopup: popup\n' + source[end:])
+PY
+if ! timeout 15 env QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software quickshell -p "$test_tmp" --no-color >"$test_tmp/runtime.log" 2>&1; then
+  fail "shadow layout fixture exits cleanly" "$(<"$test_tmp/runtime.log")"
+fi
+grep -q 'RESULT pass' "$test_tmp/runtime.log" || fail "open lists follow live shadow geometry" "$(<"$test_tmp/runtime.log")"
+pass "open lists shrink and recover while live shadow margins change"

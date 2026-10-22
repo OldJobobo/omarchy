@@ -348,7 +348,7 @@ Item {
         parent: trigger.Window.window ? trigger.Window.window.contentItem : trigger
         property real _anchorX: 0
         property real _anchorY: 0
-        property real _availableBelow: 0
+        readonly property real _availableBelow: Math.max(0, _windowHeight - _anchorY - Math.max(Style.space(12), bottomMargin))
         readonly property real _windowHeight: parent ? parent.height : 0
         readonly property real _idealContent: resultList.contentHeight + Style.space(50)
         readonly property real _maxRowsHeight: root.popupRowHeight * 6 + 5 * Style.spacing.labelGap + Style.space(50)
@@ -358,7 +358,6 @@ Item {
           var p = trigger.mapToItem(parent, 0, trigger.height + Style.spacing.xxs)
           _anchorX = p.x
           _anchorY = p.y
-          _availableBelow = Math.max(0, _windowHeight - _anchorY - Math.max(Style.space(12), bottomMargin))
         }
 
         x: _anchorX
