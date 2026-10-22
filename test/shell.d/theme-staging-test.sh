@@ -163,7 +163,7 @@ set_theme legacy || fail "omarchy-theme-set applies a theme that only ships alac
 assert_staged colors.toml "a legacy theme's palette is recovered from its alacritty.toml"
 grep -q '#102030' "$(staged colors.toml)" || fail "the recovered palette is the theme's"
 assert_no_marker alacritty.toml "a legacy theme's alacritty.toml is not staged"
-grep -qx 'opacity = 1.0' "$(staged alacritty.toml)" || fail "a legacy installed theme defaults to opaque"
+! grep -q '^opacity =' "$(staged alacritty.toml)" || fail "a legacy installed theme leaves opacity unset"
 
 pass "a theme older than colors.toml keeps its palette and loses its terminal config"
 
@@ -215,7 +215,7 @@ pass "a theme name cannot climb out of the theme directories"
 # generates. Every generated theme file is either denied to an installed theme or
 # recorded here as carrying colour, so a new template fails until it is placed.
 denied=(alacritty.toml foot.ini ghostty.conf kitty.conf gum_env.lua hyprland.lua neovim.lua vscode.json)
-colour_only=(btop.theme chromium.theme claude.json helix.toml hyprland-preview-share-picker.css keyboard.rgb obsidian.css pi.json shell.toml vscode-theme.json)
+colour_only=(btop.theme chromium.theme claude.json fcitx5-theme.conf helix.toml hermes.yaml hyprland-preview-share-picker.css keyboard.rgb obsidian.css pi.json shell.toml t3code.json vscode-theme.json)
 
 for tpl in "$ROOT"/default/themed/*.tpl; do
   generated=$(basename "$tpl" .tpl)

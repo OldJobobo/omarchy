@@ -1,7 +1,10 @@
 [colors-dark]
-alpha={{ terminal_opacity }}
+{{ terminal_opacity_foot }}
 foreground={{ foreground_strip }}
 background={{ background_strip }}
+# Blur only applies while the background is see-through, as with Glassy windows,
+# and foot reads it only at launch, so it is on from the start.
+blur=yes
 selection-foreground={{ selection_foreground_strip }}
 selection-background={{ selection_background_strip }}
 
