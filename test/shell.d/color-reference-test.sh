@@ -105,10 +105,11 @@ if ! command -v quickshell >/dev/null 2>&1; then
 fi
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
+mkdir -p "$test_tmp/home" "$test_tmp/cache"
 ln -s "$ROOT/shell/Ui" "$test_tmp/Ui"
 ln -s "$ROOT/shell/Commons" "$test_tmp/Commons"
 cp "$ROOT/test/shell.d/fixtures/popup-gradient-bindings/shell.qml" "$test_tmp/shell.qml"
-if ! timeout 15 env QT_QPA_PLATFORM=offscreen quickshell -p "$test_tmp" --no-color >"$test_tmp/runtime.log" 2>&1; then
+if ! timeout 15 env HOME="$test_tmp/home" XDG_CONFIG_HOME="$test_tmp/home/.config" XDG_CACHE_HOME="$test_tmp/cache" QT_QPA_PLATFORM=offscreen quickshell -p "$test_tmp" --no-color >"$test_tmp/runtime.log" 2>&1; then
   fail "popup slider binding fixture exits cleanly" "$(<"$test_tmp/runtime.log")"
 fi
 grep -q 'RESULT pass' "$test_tmp/runtime.log" || fail "sliders follow their actual host fill" "$(<"$test_tmp/runtime.log")"
