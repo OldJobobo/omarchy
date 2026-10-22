@@ -390,6 +390,7 @@ CornerRectangle {
     anchors.verticalCenter: parent.top
     size: removeButton.size
     radius: size / 2
+    roundingPower: 2
     color: Model.mix(Commons.Color.popups.background, row.foreground, _hot ? 0.24 : 0.14)
     borderSpec: Border.flat(Model.mix(Commons.Color.popups.background, row.foreground, _hot ? 0.65 : 0.35), Style.space(1))
     iconText: "\udb80\udc14"  // account-plus
