@@ -99,6 +99,6 @@ esac
 
 omarchy-restart-shell
 
-omarchy-notification-send -g "Restart open apps to see the font hinting change"
+omarchy-notification-send -g "$(omarchy-i18n font.restartAppsToSeeChange)"
 
 omarchy-hook font-hinting "$(current_hinting)"

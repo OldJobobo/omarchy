@@ -18,6 +18,23 @@ case "${1:-}" in
     ;;
 esac
 
+# Durations and the status line read in the Omarchy language; the --shell
+# time feeds the power panel, which shows it as-is.
+# The power reading is joined with no-break spaces so a longer language wraps
+# the line between its parts rather than inside "13.1W / 53Wh".
+format_duration() {
+  local minutes=$1
+  if [[ -z $minutes ]] || (( minutes <= 0 )); then
+    return
+  elif (( minutes < 60 )); then
+    omarchy-i18n battery.durationMinutes "$minutes"
+  elif (( minutes % 60 == 0 )); then
+    omarchy-i18n battery.durationHours "$(( minutes / 60 ))"
+  else
+    omarchy-i18n battery.durationHoursMinutes "$(( minutes / 60 ))" "$(( minutes % 60 ))"
+  fi
+}
+
 # UPower names the device after the sysfs entry, and only some kernels call
 # that BAT*: Apple Silicon reports battery_macsmc_battery. Match on the class,
 # then take the first one that powers the machine: a wireless mouse or keyboard
@@ -79,7 +96,7 @@ charge_limit=${threshold_end:-100}
 # Time left is the energy left over the draw shown beside it, so the two always
 # agree; charging counts up to the charge limit. UPower's own estimate averages
 # the draw, and stands in only when the readings to do the sum are missing.
-time_remaining=$(awk \
+minutes_remaining=$(awk \
   -v energy="$energy" -v full="$energy_full" -v rate="${power_rate_raw:-0}" \
   -v state="$state" -v limit="$charge_limit" -v fallback="$upower_hours" 'BEGIN {
   if (rate < 0) rate = -rate
@@ -89,11 +106,9 @@ time_remaining=$(awk \
     hours = fallback
   }
   if (hours == "" || hours <= 0) exit
-  minutes = int(hours * 60 + 0.5)
-  if (minutes < 60) printf "%dm", minutes
-  else if (minutes % 60 == 0) printf "%dh", minutes / 60
-  else printf "%dh %dm", int(minutes / 60), minutes % 60
+  printf "%d", int(hours * 60 + 0.5)
 }')
+time_remaining=$(format_duration "$minutes_remaining")
 
 ac_online=false
 for supply in "$power_supply_path"/*; do
@@ -151,16 +166,19 @@ if [[ $shell_output == "true" ]]; then
   exit 0
 fi
 
+# The power reading shows its numbers in the language's own way.
+power_reading="$(omarchy-i18n --number "$power_rate")W / $(omarchy-i18n --number "$capacity")Wh"
+
 if [[ $charge_holding == "true" ]]; then
   if [[ -n $threshold_start && $threshold_start != $threshold_end ]]; then
-    threshold_label="${threshold_start}-${threshold_end}%"
+    threshold_label="$(omarchy-i18n --number "$threshold_start")-$(omarchy-i18n --number "$threshold_end")%"
   else
-    threshold_label="${threshold_end}%"
+    threshold_label="$(omarchy-i18n --number "$threshold_end")%"
   fi
 
-  echo "Battery ${percentage}%  ·  Holding at ${threshold_label}  ·  ${power_rate}W / ${capacity}Wh"
+  echo "$(omarchy-i18n battery.statusLabel "$percentage")  ·  $(omarchy-i18n battery.holdingAt "$threshold_label")  ·  ${power_reading}"
 elif [[ $state == "charging" ]]; then
-  echo "Battery ${percentage}%  ·  ${time_remaining} to full  ·   ${power_rate}W / ${capacity}Wh"
+  echo "$(omarchy-i18n battery.statusLabel "$percentage")  ·  $(omarchy-i18n battery.toFull "$time_remaining")  ·   ${power_reading}"
 else
-  echo "Battery ${percentage}%  ·  ${time_remaining} left  ·   ${power_rate}W / ${capacity}Wh"
+  echo "$(omarchy-i18n battery.statusLabel "$percentage")  ·  $(omarchy-i18n battery.timeLeft "$time_remaining")  ·   ${power_reading}"
 fi

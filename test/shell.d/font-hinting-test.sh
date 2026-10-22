@@ -73,9 +73,9 @@ if (!/"font-hinting": \{[\s\S]*?omarchy-font-hinting "/.test(providerBlock)) {
   console.error('menu has no font-hinting provider')
   process.exit(1)
 }
-if (!/"style\.font-hinting": \{[^}]*"provider":"font-hinting"\}/.test(menuJsonc)) {
-  console.error('style menu has no font hinting entry')
+if (!/"appearance\.font-hinting": \{[^}]*"provider":"font-hinting"\}/.test(menuJsonc)) {
+  console.error('appearance menu has no font hinting entry')
   process.exit(1)
 }
 JS
-pass "style menu offers font hinting"
+pass "appearance menu offers font hinting"
