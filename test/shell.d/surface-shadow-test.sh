@@ -55,6 +55,7 @@ fi
 
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
+mkdir -p "$test_tmp/home" "$test_tmp/cache"
 cp -a "$ROOT/shell/Ui" "$test_tmp/Ui"
 ln -s "$ROOT/shell/Commons" "$test_tmp/Commons"
 cp "$ROOT/test/shell.d/fixtures/surface-shadow-layout/shell.qml" "$test_tmp/shell.qml"
@@ -67,7 +68,7 @@ source = p.read_text()
 end = source.rfind('\n}')
 p.write_text(source[:end] + '\n  property alias testedPopup: popup\n' + source[end:])
 PY
-if ! timeout 15 env QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software quickshell -p "$test_tmp" --no-color >"$test_tmp/runtime.log" 2>&1; then
+if ! timeout 15 env HOME="$test_tmp/home" XDG_CONFIG_HOME="$test_tmp/home/.config" XDG_CACHE_HOME="$test_tmp/cache" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software quickshell -p "$test_tmp" --no-color >"$test_tmp/runtime.log" 2>&1; then
   fail "shadow layout fixture exits cleanly" "$(<"$test_tmp/runtime.log")"
 fi
 grep -q 'RESULT pass' "$test_tmp/runtime.log" || fail "open lists follow live shadow geometry" "$(<"$test_tmp/runtime.log")"
