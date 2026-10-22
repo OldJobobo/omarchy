@@ -12,6 +12,7 @@ cleanup() {
     kill "$QS_PID" 2>/dev/null || true
     wait "$QS_PID" 2>/dev/null || true
   fi
+  [[ -n ${test_root:-} ]] && rm -f "$(shell_ipc_socket "$test_root")"
   if [[ -n $TMPDIR && -d $TMPDIR ]]; then
     rm -rf "$TMPDIR"
   fi
@@ -58,6 +59,12 @@ screenshot_dir="$TMPDIR/screenshots"
 log="$TMPDIR/quickshell.log"
 screenshot_err="$TMPDIR/screenshot.err"
 mkdir -p "$test_root" "$test_home" "$stub_bin" "$screenshot_dir"
+
+# This shell joins an already-running compositor session, like a shell
+# restart. Seed the background-intro session marker so it does not map
+# the solid new-login startup cover over the bar being screenshotted.
+mkdir -p "$test_home/.local/state/omarchy"
+printf '%s\n' "$HYPRLAND_INSTANCE_SIGNATURE" >"$test_home/.local/state/omarchy/background-intro.session-id"
 cp -a "$ROOT/shell" "$test_root/shell"
 ln -s "$ROOT/config" "$test_root/config"
 ln -s "$ROOT/bin" "$test_root/bin"

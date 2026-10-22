@@ -13,12 +13,14 @@ root = Path(os.environ["ROOT"])
 app = QGuiApplication([])
 
 with tempfile.TemporaryDirectory(prefix="omarchy-shadow-") as directory:
-    fixture = Path(directory)
+    imports = Path(directory)
+    fixture = imports / "qs" / "Commons"
+    fixture.mkdir(parents=True)
     # Exercise the production resolver and border color parser with a fixed
     # palette, without starting the Color singleton's desktop file watchers.
     for name in ("Shadow.qml", "ShadowGeometry.js", "Border.qml", "BorderGeometry.js"):
         shutil.copyfile(root / "shell/Commons" / name, fixture / name)
-    (fixture / "qmldir").write_text("singleton Shadow 1.0 Shadow.qml\nsingleton Border 1.0 Border.qml\nsingleton Color 1.0 Color.qml\n")
+    (fixture / "qmldir").write_text("module qs.Commons\nsingleton Shadow 1.0 Shadow.qml\nsingleton Border 1.0 Border.qml\nsingleton Color 1.0 Color.qml\n")
     (fixture / "Color.qml").write_text('''pragma Singleton
 import QtQuick
 QtObject {
@@ -31,14 +33,14 @@ QtObject {
 }
 ''')
     source = '''import QtQuick
-import "."
+import qs.Commons as Commons
 import "%s"
 Item {
   id: root
   width: 400; height: 300
   property var values: ({})
-  onValuesChanged: Color.shellValues = values
-  readonly property var spec: Shadow.surfaceSpec("popups")
+  onValuesChanged: Commons.Color.shellValues = values
+  readonly property var spec: Commons.Shadow.surfaceSpec("popups")
   readonly property color resolvedColor: spec.color
   readonly property bool enabledShadow: spec.enabled
   readonly property bool loaded: shadowLoader.item !== null
@@ -51,6 +53,7 @@ Item {
 }
 ''' % (root / "shell/Ui").as_uri()
     view = QQuickView()
+    view.engine().addImportPath(str(imports))
     view.resize(400, 300)
     view.setColor("white")
     component = QQmlComponent(view.engine())

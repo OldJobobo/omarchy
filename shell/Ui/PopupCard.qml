@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import qs.Commons
+import qs.Commons as Commons
 
 PopupWindow {
   id: root
@@ -13,8 +14,8 @@ PopupWindow {
   property int padding: Style.spacing.popupPadding
   property int contentWidth: Style.space(280)
   property int contentHeight: Style.space(200)
-  property color borderColor: Color.popups.border
-  property var borderSpec: Border.localOrSurfaceSpec("popups", "border", borderColor, Color.popups.border, Math.max(1, Style.space(2)))
+  property color borderColor: Commons.Color.popups.border
+  property var borderSpec: Border.localOrSurfaceSpec("popups", "border", borderColor, Commons.Color.popups.border, Math.max(1, Style.space(2)))
   readonly property var shadowSpec: Shadow.surfaceSpec("popups")
   property bool open: false
   property bool centerOnBar: false
@@ -159,19 +160,23 @@ PopupWindow {
     width: root.contentWidth
     height: root.contentHeight
     shadowSection: "popups"
-    color: Color.popups.background
+    color: Commons.Color.popups.background
     borderSpec: root.borderSpec
     padding: root.padding
     radius: Style.cornerRadius
     opacity: root.open ? 1.0 : 0
 
     Behavior on opacity {
-      NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+      NumberAnimation { duration: Style.duration(140); easing.type: Easing.OutCubic }
     }
 
     Item {
       id: contentHolder
       anchors.fill: parent
+      // Right-to-left languages read the card mirrored; the card itself
+      // stays where the bar puts it.
+      LayoutMirroring.enabled: Commons.I18n.rightToLeft
+      LayoutMirroring.childrenInherit: true
       anchors.topMargin: card.contentTopInset
       anchors.rightMargin: card.contentRightInset
       anchors.bottomMargin: card.contentBottomInset
