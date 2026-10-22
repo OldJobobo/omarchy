@@ -25,7 +25,10 @@ Item {
   // `integer`/`step` or an index-based value. Default 0 leaves the track plain.
   property int tickCount: 0
   property color tickColor: bar ? bar.background : Commons.Color.background
-  readonly property bool gradientCard: Commons.Color.popups.backgroundSpec.gradient.enabled
+  // The host supplies its actual fill; unrelated popup settings must not
+  // restyle sliders on solid windows such as the developer gallery.
+  property var surfaceFillSpec: null
+  readonly property bool gradientCard: !!(surfaceFillSpec && surfaceFillSpec.gradient && surfaceFillSpec.gradient.enabled)
 
   onValueChanged: if (!dragging) liveValue = value
 
@@ -42,6 +45,12 @@ Item {
   readonly property real range: Math.max(0.0001, maximum - minimum)
   readonly property real progress: Math.max(0, Math.min(1, (liveValue - minimum) / range))
   readonly property bool _hot: mouseArea.containsMouse || root.dragging
+  // In a mirrored (right-to-left) layout the anchored fill already starts at
+  // the right; the knob, ticks, and pointer are placed by x, so they flip here.
+  readonly property bool mirrored: LayoutMirroring.enabled
+  function trackX(fraction) {
+    return track.width * (root.mirrored ? 1 - fraction : fraction)
+  }
 
   Rectangle {
     id: track
@@ -80,7 +89,7 @@ Item {
       color: root.tickColor
       anchors.verticalCenter: track.verticalCenter
       x: Math.max(0, Math.min(track.width - width,
-                              track.width * (index / (root.tickCount - 1)) - width / 2))
+                              root.trackX(index / (root.tickCount - 1)) - width / 2))
     }
   }
 
@@ -92,7 +101,7 @@ Item {
     color: root.knobColor
     borderSpec: Border.flat(root.gradientCard ? root.trackColor : (root.bar ? root.bar.background : "#101315"), Math.max(1, Style.space(2)))
     anchors.verticalCenter: track.verticalCenter
-    x: Math.max(0, Math.min(track.width - width, track.width * root.progress - width / 2))
+    x: Math.max(0, Math.min(track.width - width, root.trackX(root.progress) - width / 2))
     scale: root._hot ? 1.15 : 1.0
 
     Behavior on x {
@@ -113,7 +122,7 @@ Item {
     acceptedButtons: Qt.LeftButton | Qt.RightButton
 
     function valueFromX(x) {
-      var clamped = Math.max(0, Math.min(track.width, x))
+      var clamped = Math.max(0, Math.min(track.width, root.mirrored ? track.width - x : x))
       var raw = root.minimum + (clamped / track.width) * root.range
       if (root.integer) raw = Math.round(raw)
       return Math.max(root.minimum, Math.min(root.maximum, raw))

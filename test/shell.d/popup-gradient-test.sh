@@ -74,7 +74,13 @@ for (const file of ['PopupCard', 'KeyboardPanel']) {
 }
 assert(source.includes('property var backgroundSpec: root.fillSpec("popups.background"'), 'popup gradient specification uses the popups background key')
 const slider = read('shell/Ui/PanelSlider.qml')
-assert(slider.includes('import qs.Commons as Commons') && slider.includes('readonly property bool gradientCard: Commons.Color.popups.backgroundSpec.gradient.enabled'), 'gradient slider uses the qualified palette namespace')
+const gradientBinding = slider.match(/readonly property bool gradientCard: (.+)/)[1]
+const sliderScope = { surfaceFillSpec: null, Commons: { Color: { popups: { backgroundSpec: { gradient: { enabled: true } } } } } }
+assertEqual(vm.runInNewContext(gradientBinding, sliderScope), false, 'a slider without a gradient host ignores global popup gradients')
+sliderScope.surfaceFillSpec = { gradient: { enabled: false } }
+assertEqual(vm.runInNewContext(gradientBinding, sliderScope), false, 'a slider on a solid host keeps solid styling')
+sliderScope.surfaceFillSpec = { gradient: { enabled: true } }
+assertEqual(vm.runInNewContext(gradientBinding, sliderScope), true, 'a slider on a gradient host uses gradient styling')
 assert(slider.includes('root.gradientCard ? 0 : Style.space(4)'), 'gradient slider ticks stay inside the track')
 assert(slider.includes('root.gradientCard ? root.trackColor :'), 'gradient slider knob ring follows the track rather than the bar background')
 JS

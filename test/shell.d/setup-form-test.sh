@@ -63,6 +63,8 @@ trap 'if [[ ${FUNCNAME[0]:-} == "$PROMPT_FN" ]]; then printf "returned\n" >>"$MA
 
 printf 'keyboard=%s\n' "${keyboard:-}"
 printf 'keyboard_label=%s\n' "${keyboard_label:-}"
+printf 'keyboard_input_method=%s\n' "${keyboard_input_method:-}"
+printf 'keyboard_xkb_layout=%s\n' "${keyboard_xkb_layout:-}"
 printf 'username=%s\n' "${username:-}"
 printf 'password=%s\n' "${password:-}"
 printf 'password_confirmation=%s\n' "${password_confirmation:-}"
@@ -80,6 +82,9 @@ export NOTICES="$tmp_dir/notices" MARKER="$tmp_dir/marker"
 status=0
 
 # run_prompt <function> <status:output>... — each response answers one gum screen
+# The machine's own form defaults never reach these tests.
+export OMARCHY_FORM_DEFAULTS="$tmp_dir/no-form-defaults"
+
 run_prompt() {
   local prompt=$1
   shift
@@ -132,6 +137,39 @@ assert_status 0 "keyboard prompt succeeds"
 [[ $(head -n 1 "$tmp_dir/stdin.1") == "English (US)" ]] || fail "keyboard prompt offers English (US) first"
 grep -qF -- '--selected English (US)' "$GUM_ARGS" || fail "keyboard prompt preselects English (US)"
 pass "keyboard prompt maps the chosen label to its keymap"
+
+OMARCHY_FORM_KEYBOARD_DEFAULT="Chinese (Simplified, Pinyin)" run_prompt omarchy_prompt_keyboard "0:Chinese (Simplified, Pinyin)"
+assert_status 0 "a preset keyboard prompt succeeds"
+grep -qF -- '--selected Chinese (Simplified\, Pinyin)' "$GUM_ARGS" || fail "install media can preset the keyboard choice" "$(cat "$GUM_ARGS")"
+[[ $(head -n 1 "$tmp_dir/stdin.1") == "English (US)" ]] || fail "a preset keeps the list in its usual order"
+[[ $(field keyboard_input_method) == "pinyin" ]] || fail "the preset choice carries its input method"
+pass "install media can preselect the keyboard, which stays a choice"
+
+printf 'KEYBOARD=Chinese (Simplified, Pinyin)\nTIMEZONE=Asia/Shanghai\nOTHER=$(touch %s/NEVER)\n' "$tmp_dir" >"$tmp_dir/form-defaults"
+OMARCHY_FORM_DEFAULTS="$tmp_dir/form-defaults" run_prompt omarchy_prompt_keyboard "0:Chinese (Simplified, Pinyin)"
+grep -qF -- '--selected Chinese (Simplified\, Pinyin)' "$GUM_ARGS" || fail "a first-boot owner setup takes the media's keyboard default" "$(cat "$GUM_ARGS")"
+OMARCHY_FORM_DEFAULTS="$tmp_dir/form-defaults" TZ_GUESS=Europe/Copenhagen run_prompt omarchy_prompt_timezone "0:Asia/Shanghai"
+grep -qF -- '--selected Asia/Shanghai' "$GUM_ARGS" || fail "a first-boot owner setup takes the media's timezone default" "$(cat "$GUM_ARGS")"
+[[ ! -e $tmp_dir/NEVER ]] || fail "form defaults are read as data"
+OMARCHY_FORM_DEFAULTS="$tmp_dir/form-defaults" OMARCHY_FORM_KEYBOARD_DEFAULT=Japanese run_prompt omarchy_prompt_keyboard "0:Japanese"
+grep -qF -- '--selected Japanese' "$GUM_ARGS" || fail "the live installer's environment wins over the file"
+pass "a first-boot owner setup reads the media's defaults as data"
+
+for selection in 'Japanese|jp106|mozc|' 'Japanese (US keyboard)|us|mozc|' 'Korean|us|hangul|kr:kr104' 'Lao|us|none|la' 'Chinese (Simplified, Pinyin)|us|pinyin|' 'Taiwan (Zhuyin)|us|chewing|' 'Hong Kong (Cangjie)|us|cangjie5|'; do
+  IFS='|' read -r label keymap method layout <<< "$selection"
+  run_prompt omarchy_prompt_keyboard "0:$label"
+  assert_status 0 "$label can be selected at install"
+  [[ $(field keyboard) == "$keymap" && $(field keyboard_input_method) == "$method" && $(field keyboard_xkb_layout) == "$layout" ]] ||
+    fail "$label carries a real console keymap and a separate input preference"
+done
+pass "language keyboard choices carry their keymap, input method, and desktop override"
+
+keyboard_input_method=hangul keyboard_xkb_layout=kr omarchy_persist_input_selection "$tmp_dir/target"
+[[ $(<"$tmp_dir/target/etc/omarchy/input-method") == $'INPUT_METHOD=hangul\nXKB_LAYOUT=kr' ]] || fail "first-boot setup persists the selection for user finalization"
+keyboard_input_method=hangul keyboard_xkb_layout=kr:kr104 omarchy_persist_input_selection "$tmp_dir/target"
+[[ $(<"$tmp_dir/target/etc/omarchy/input-method") == $'INPUT_METHOD=hangul\nXKB_LAYOUT=kr:kr104' ]] || fail "first-boot setup persists the Korean Right Alt variant"
+keyboard_input_method=hangul keyboard_xkb_layout=kr:dvorak omarchy_persist_input_selection "$tmp_dir/target" && fail "an unknown desktop variant is refused"
+pass "first-boot setup persists the selection for user finalization"
 
 run_prompt omarchy_prompt_keyboard "1:"
 assert_status "$OMARCHY_FORM_BACK" "keyboard prompt reports Esc as back"
@@ -224,6 +262,11 @@ assert_status 0 "timezone prompt survives a failed geo guess"
 [[ $(field timezone) == "America/Chicago" ]] || fail "timezone prompt keeps the filtered timezone"
 [[ $(head -n 1 "$GUM_ARGS") == filter* ]] || fail "timezone prompt filters when there is no geo guess"
 pass "timezone prompt falls back to filtering when the geo guess fails"
+
+OMARCHY_FORM_TIMEZONE_DEFAULT=Asia/Shanghai TZ_GUESS=Europe/Copenhagen run_prompt omarchy_prompt_timezone "0:Asia/Shanghai"
+assert_status 0 "a preset timezone prompt succeeds"
+grep -qF -- '--selected Asia/Shanghai' "$GUM_ARGS" || fail "install media can preset the timezone over the geo guess" "$(cat "$GUM_ARGS")"
+pass "install media can preselect the timezone, which stays a choice"
 
 run_prompt omarchy_prompt_timezone "0:"
 assert_status 0 "timezone prompt accepts an empty selection"
