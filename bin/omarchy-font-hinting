@@ -18,7 +18,7 @@ GKEY_SCHEMA="org.gnome.desktop.interface"
 GKEY_NAME="font-hinting"
 
 # Its own drop-in rather than fonts.conf, which omarchy-font-set rewrites.
-fontconfig_file="$HOME/.config/fontconfig/conf.d/20-omarchy-hinting.conf"
+fontconfig_file="${XDG_CONFIG_HOME:-$HOME/.config}/fontconfig/conf.d/20-omarchy-hinting.conf"
 
 usage() {
   echo "Usage: omarchy-font-hinting [none|slight|medium|full|reset]"
@@ -99,6 +99,6 @@ esac
 
 omarchy-restart-shell
 
-omarchy-notification-send -g "$(omarchy-i18n font.restartAppsToSeeChange)"
+omarchy-notification-send "$(omarchy-i18n font.restartAppsToSeeChange)"
 
 omarchy-hook font-hinting "$(current_hinting)"

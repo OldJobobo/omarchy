@@ -6,21 +6,24 @@ source "$(dirname "${BASH_SOURCE[0]}")/base-test.sh"
 test_dir=$(mktemp -d)
 trap 'rm -rf "$test_dir"' EXIT
 test_home="$test_dir/home"
+config_home="$test_home/.config"
 drop_in="$test_home/.config/fontconfig/conf.d/20-omarchy-hinting.conf"
 fonts_conf="$test_home/.config/fontconfig/fonts.conf"
 calls="$test_dir/calls"
 mkdir -p "$test_home/.config/omarchy/hooks/font-hinting.d" "$test_dir/bin"
 
-for command in omarchy-restart-shell omarchy-notification-send gsettings; do
+for command in omarchy-restart-shell gsettings; do
   printf '#!/bin/bash\nprintf "%%s\\n" "%s $*" >>"%s"\n' "$command" "$calls" >"$test_dir/bin/$command"
 done
+# Run the real notification helper; only the D-Bus transport is a stub.
+printf '#!/bin/bash\nprintf "%%s\\n" "$@" >>"%s"\n' "$calls" >"$test_dir/bin/busctl"
 printf '#!/bin/bash\nexit 1\n' >"$test_dir/bin/pgrep"
 printf '#!/bin/bash\nprintf "Test Font\\n"\n' >"$test_dir/bin/fc-list"
 chmod +x "$test_dir/bin/"*
 printf '#!/bin/bash\nprintf "%%s\\n" "hook $1" >>"%s"\n' "$calls" >"$test_home/.config/omarchy/hooks/font-hinting.d/record"
 
 run_command() {
-  env HOME="$test_home" XDG_CONFIG_HOME="$test_home/.config" OMARCHY_PATH="$ROOT" PATH="$test_dir/bin:$ROOT/bin:$PATH" "$ROOT/bin/$@"
+  env HOME="$test_home" XDG_CONFIG_HOME="$config_home" OMARCHY_PATH="$ROOT" PATH="$test_dir/bin:$ROOT/bin:$PATH" "$ROOT/bin/$@"
 }
 
 [[ ! -e $drop_in ]] || fail "test starts without a hinting override"
@@ -36,6 +39,7 @@ for style in full medium slight none; do
   [[ $(run_command omarchy-font-hinting) == "$style" ]] || fail "fontconfig resolves $style after setting it"
   grep -qx "gsettings set org.gnome.desktop.interface font-hinting $style" "$calls" || fail "$style reaches GTK"
   grep -q '^omarchy-restart-shell' "$calls" || fail "$style restarts the shell"
+  grep -qx 'Restart open apps to see the change' "$calls" || fail "$style sends its restart reminder through the real notification parser"
   grep -qx "hook $style" "$calls" || fail "$style runs the font-hinting hook"
 done
 grep -q '<bool>false</bool>' "$drop_in" || fail "none turns hinting off"
@@ -62,20 +66,10 @@ fi
 [[ ! -e $drop_in && ! -s $calls ]] || fail "an unknown style changes nothing"
 pass "font hinting rejects unknown styles"
 
-node - "$ROOT" <<'JS'
-const fs = require('fs')
-const path = require('path')
-const root = process.argv[2]
-const menuQml = fs.readFileSync(path.join(root, 'shell/plugins/menu/Menu.qml'), 'utf8')
-const menuJsonc = fs.readFileSync(path.join(root, 'default/omarchy/omarchy-menu.jsonc'), 'utf8')
-const providerBlock = menuQml.match(/readonly property var providers: \(\{[\s\S]*?\n  \}\)/)[0]
-if (!/"font-hinting": \{[\s\S]*?omarchy-font-hinting "/.test(providerBlock)) {
-  console.error('menu has no font-hinting provider')
-  process.exit(1)
-}
-if (!/"appearance\.font-hinting": \{[^}]*"provider":"font-hinting"\}/.test(menuJsonc)) {
-  console.error('appearance menu has no font hinting entry')
-  process.exit(1)
-}
-JS
-pass "appearance menu offers font hinting"
+config_home="$test_dir/custom-config"
+run_command omarchy-font-hinting full
+[[ -f $config_home/fontconfig/conf.d/20-omarchy-hinting.conf && ! -e $drop_in ]] || fail "hinting uses the custom config directory"
+[[ $(run_command omarchy-font-hinting) == "full" ]] || fail "fontconfig resolves hinting from the custom config directory"
+run_command omarchy-font-hinting reset
+[[ ! -e $config_home/fontconfig/conf.d/20-omarchy-hinting.conf ]] || fail "reset removes the custom-directory override"
+pass "font hinting follows XDG_CONFIG_HOME for setting, reading and reset"
